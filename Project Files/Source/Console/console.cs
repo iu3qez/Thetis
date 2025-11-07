@@ -36,6 +36,7 @@
 //=================================================================
 
 using Midi2Cat.Data; //-W2PA Necessary for Behringer MIDI changes
+using Thetis.Services; // Refactored: Thread management service
 
 namespace Thetis
 {
@@ -88,19 +89,23 @@ namespace Thetis
         public SpecRX specRX;
         public Midi2CatCommands Midi2Cat;
         private System.Timers.Timer n1mm_delay;             // timer for setting delay on focus
-        private Thread draw_display_thread;					// draws the main display 
-        private Thread multimeter_thread;					// updates the rx1/tx meter data
-        private Thread rx2_meter_thread;					// updates the rx2 meter data
-        private Thread poll_ptt_thread;						// polls the PTT line on the parallel port
-        private Thread poll_cw_thread;
-        private Thread poll_pa_pwr_thread;					// polls the FWD and REV power if the PA is installed
-        private Thread poll_tx_inhibit_thead;
-        private Thread display_volts_amps_thead;            // calculate and display volts and amps for ANAN-8000DLE
-        private Thread sql_update_thread;					// polls the RX signal strength
-        private Thread rx2_sql_update_thread;				// polls the RX2 signal strength
-        private Thread vox_update_thread;					// polls the mic input
-        private Thread noise_gate_update_thread;			// polls the mic input during TX
-        private Thread _overload_thread;
+
+        // Refactored: Thread management now handled by ThreadCoordinator service
+        private readonly ThreadCoordinator _threadCoordinator = new ThreadCoordinator();
+        // DEPRECATED: Thread declarations moved to ThreadCoordinator
+        // private Thread draw_display_thread;					// draws the main display
+        // private Thread multimeter_thread;					// updates the rx1/tx meter data
+        // private Thread rx2_meter_thread;					// updates the rx2 meter data
+        // private Thread poll_ptt_thread;						// polls the PTT line on the parallel port
+        // private Thread poll_cw_thread;
+        // private Thread poll_pa_pwr_thread;					// polls the FWD and REV power if the PA is installed
+        // private Thread poll_tx_inhibit_thead;
+        // private Thread display_volts_amps_thead;            // calculate and display volts and amps for ANAN-8000DLE
+        // private Thread sql_update_thread;					// polls the RX signal strength
+        // private Thread rx2_sql_update_thread;				// polls the RX2 signal strength
+        // private Thread vox_update_thread;					// polls the mic input
+        // private Thread noise_gate_update_thread;			// polls the mic input during TX
+        // private Thread _overload_thread;
         public bool _pause_DisplayThread = true;             // MW0LGE_21d initally paused
         private bool calibration_running = false;
         private bool displaydidit = false;
@@ -510,8 +515,9 @@ namespace Thetis
         private frmNotchPopup m_frmNotchPopup;
         private frmFinder _frmFinder;
         private frmSeqLog m_frmSeqLog;
-        private Thread multimeter2_thread_rx1;
-        private Thread multimeter2_thread_rx2;
+        // DEPRECATED: Thread declarations moved to ThreadCoordinator
+        // private Thread multimeter2_thread_rx1;
+        // private Thread multimeter2_thread_rx2;
         private bool _onlyOneSetupInstance; // used by setup to ensure only one instance created
         private bool _onlyOneCWXInstance;
 
@@ -27286,28 +27292,24 @@ namespace Thetis
         {
             if (_useLegacyMeters && chkPower.Checked)
             {
-                if (rx == 1 && (multimeter_thread == null || !multimeter_thread.IsAlive))
+                if (rx == 1)
                 {
-                    multimeter_thread = new Thread(new ThreadStart(UpdateMultimeter))
-                    {
-                        Name = "Multimeter Thread",
-                        Priority = ThreadPriority.Lowest,
-                        IsBackground = true
-                    };
-                    multimeter_thread.Start();
+                    // Refactored: Using ThreadCoordinator for thread management
+                    _threadCoordinator.StartThread("Multimeter",
+                        new ThreadStart(UpdateMultimeter),
+                        "Multimeter Thread",
+                        ThreadPriority.Lowest);
                 }
 
                 if (rx2_enabled)
                 {
-                    if (rx == 2 && (rx2_meter_thread == null || !rx2_meter_thread.IsAlive))
+                    if (rx == 2)
                     {
-                        rx2_meter_thread = new Thread(new ThreadStart(UpdateRX2MeterData))
-                        {
-                            Name = "RX2 Meter Thread",
-                            Priority = ThreadPriority.Lowest,
-                            IsBackground = true
-                        };
-                        rx2_meter_thread.Start();
+                        // Refactored: Using ThreadCoordinator for thread management
+                        _threadCoordinator.StartThread("RX2Meter",
+                            new ThreadStart(UpdateRX2MeterData),
+                            "RX2 Meter Thread",
+                            ThreadPriority.Lowest);
                     }
                 }
             }
@@ -27387,16 +27389,11 @@ namespace Thetis
                 setupLegacyMeterThreads(1);
 
                 //multimeter2 MW0LGE_[2.9.0.7]
-                if (multimeter2_thread_rx1 == null || !multimeter2_thread_rx1.IsAlive)
-                {
-                    multimeter2_thread_rx1 = new Thread(new ThreadStart(MultiMeter2UpdateRX1))
-                    {
-                        Name = "Multimeter2 RX1 Thread",
-                        Priority = ThreadPriority.Lowest,
-                        IsBackground = true
-                    };
-                    multimeter2_thread_rx1.Start();
-                }
+                // Refactored: Using ThreadCoordinator for thread management
+                _threadCoordinator.StartThread("Multimeter2RX1",
+                    new ThreadStart(MultiMeter2UpdateRX1),
+                    "Multimeter2 RX1 Thread",
+                    ThreadPriority.Lowest);
                 //
 
                 if (rx2_enabled)
@@ -27404,128 +27401,68 @@ namespace Thetis
                     setupLegacyMeterThreads(2);
 
                     //multimeter2 MW0LGE_[2.9.0.7]
-                    if (multimeter2_thread_rx2 == null || !multimeter2_thread_rx2.IsAlive)
-                    {
-                        multimeter2_thread_rx2 = new Thread(new ThreadStart(MultiMeter2UpdateRX2))
-                        {
-                            Name = "Multimeter2 RX2 Thread",
-                            Priority = ThreadPriority.Lowest,
-                            IsBackground = true
-                        };
-                        multimeter2_thread_rx2.Start();
-                    }
+                    // Refactored: Using ThreadCoordinator for thread management
+                    _threadCoordinator.StartThread("Multimeter2RX2",
+                        new ThreadStart(MultiMeter2UpdateRX2),
+                        "Multimeter2 RX2 Thread",
+                        ThreadPriority.Lowest);
                     //
 
-                    if (rx2_sql_update_thread == null || !rx2_sql_update_thread.IsAlive)
-                    {
-                        rx2_sql_update_thread = new Thread(new ThreadStart(UpdateRX2SQL))
-                        {
-                            Name = "Update RX2 SQL",
-                            Priority = ThreadPriority.Normal,
-                            IsBackground = true
-                        };
-                        rx2_sql_update_thread.Start();
-                    }
+                    // Refactored: Using ThreadCoordinator for thread management
+                    _threadCoordinator.StartThread("RX2SQLUpdate",
+                        new ThreadStart(UpdateRX2SQL),
+                        "Update RX2 SQL",
+                        ThreadPriority.Normal);
                 }
 
-                if (sql_update_thread == null || !sql_update_thread.IsAlive)
-                {
-                    sql_update_thread = new Thread(new ThreadStart(UpdateSQL))
-                    {
-                        Name = "Update SQL",
-                        Priority = ThreadPriority.Normal,
-                        IsBackground = true
-                    };
-                    sql_update_thread.Start();
-                }
+                // Refactored: Using ThreadCoordinator for thread management
+                _threadCoordinator.StartThread("SQLUpdate",
+                    new ThreadStart(UpdateSQL),
+                    "Update SQL",
+                    ThreadPriority.Normal);
 
-                if (noise_gate_update_thread == null || !noise_gate_update_thread.IsAlive)
-                {
-                    noise_gate_update_thread = new Thread(new ThreadStart(UpdateNoiseGate))
-                    {
-                        Name = "Update NoiseGate",
-                        Priority = ThreadPriority.Normal,
-                        IsBackground = true
-                    };
-                    noise_gate_update_thread.Start();
-                }
+                _threadCoordinator.StartThread("NoiseGateUpdate",
+                    new ThreadStart(UpdateNoiseGate),
+                    "Update NoiseGate",
+                    ThreadPriority.Normal);
 
-                if (vox_update_thread == null || !vox_update_thread.IsAlive)
-                {
-                    vox_update_thread = new Thread(new ThreadStart(UpdateVOX))
-                    {
-                        Name = "Update VOX",
-                        Priority = ThreadPriority.Normal,
-                        IsBackground = true
-                    };
-                    vox_update_thread.Start();
-                }
+                _threadCoordinator.StartThread("VOXUpdate",
+                    new ThreadStart(UpdateVOX),
+                    "Update VOX",
+                    ThreadPriority.Normal);
 
-                if (poll_ptt_thread == null || !poll_ptt_thread.IsAlive)
-                {
-                    poll_ptt_thread = new Thread(new ThreadStart(PollPTT))
-                    {
-                        Name = "Poll PTT Thread",
-                        Priority = ThreadPriority.Normal,
-                        IsBackground = true
-                    };
-                    poll_ptt_thread.Start();
-                }
+                _threadCoordinator.StartThread("PollPTT",
+                    new ThreadStart(PollPTT),
+                    "Poll PTT Thread",
+                    ThreadPriority.Normal);
 
-                if (poll_cw_thread == null || !poll_cw_thread.IsAlive)
-                {
-                    poll_cw_thread = new Thread(new ThreadStart(PollCW))
-                    {
-                        Name = "Poll CW Thread",
-                        Priority = ThreadPriority.BelowNormal,
-                        IsBackground = true
-                    };
-                    poll_cw_thread.Start();
-                }
+                _threadCoordinator.StartThread("PollCW",
+                    new ThreadStart(PollCW),
+                    "Poll CW Thread",
+                    ThreadPriority.BelowNormal);
 
-                if (poll_pa_pwr_thread == null || !poll_pa_pwr_thread.IsAlive)
-                {
-                    poll_pa_pwr_thread = new Thread(new ThreadStart(PollPAPWR))
-                    {
-                        Name = "Poll PA PWR Thread",
-                        Priority = ThreadPriority.BelowNormal,
-                        IsBackground = true
-                    };
-                    poll_pa_pwr_thread.Start();
-                }
+                _threadCoordinator.StartThread("PollPAPWR",
+                    new ThreadStart(PollPAPWR),
+                    "Poll PA PWR Thread",
+                    ThreadPriority.BelowNormal);
 
-                if (_overload_thread == null || !_overload_thread.IsAlive)
-                {
-                    _overload_thread = new Thread(new ThreadStart(pollOverloadSyncSeqErr))
-                    {
-                        Name = "Overload Thread",
-                        Priority = ThreadPriority.BelowNormal,
-                        IsBackground = true
-                    };
-                    _overload_thread.Start();
-                }
+                _threadCoordinator.StartThread("Overload",
+                    new ThreadStart(pollOverloadSyncSeqErr),
+                    "Overload Thread",
+                    ThreadPriority.BelowNormal);
 
-                if (poll_tx_inhibit_thead == null || !poll_tx_inhibit_thead.IsAlive)
-                {
-                    poll_tx_inhibit_thead = new Thread(new ThreadStart(PollTXInhibit))
-                    {
-                        Name = "Poll TX Inhibit input Thread",
-                        Priority = ThreadPriority.Normal,
-                        IsBackground = true
-                    };
-                    poll_tx_inhibit_thead.Start();
-                }
+                _threadCoordinator.StartThread("PollTXInhibit",
+                    new ThreadStart(PollTXInhibit),
+                    "Poll TX Inhibit input Thread",
+                    ThreadPriority.Normal);
 
-                if ((display_volts_amps_thead == null || !display_volts_amps_thead.IsAlive) && (current_hpsdr_model == HPSDRModel.ANAN7000D || current_hpsdr_model == HPSDRModel.ANAN8000D ||
-                    current_hpsdr_model == HPSDRModel.ANVELINAPRO3 || current_hpsdr_model == HPSDRModel.ANAN_G2 || current_hpsdr_model == HPSDRModel.ANAN_G2_1K))
+                if (current_hpsdr_model == HPSDRModel.ANAN7000D || current_hpsdr_model == HPSDRModel.ANAN8000D ||
+                    current_hpsdr_model == HPSDRModel.ANVELINAPRO3 || current_hpsdr_model == HPSDRModel.ANAN_G2 || current_hpsdr_model == HPSDRModel.ANAN_G2_1K)
                 {
-                    display_volts_amps_thead = new Thread(new ThreadStart(readMKIIPAVoltsAmps))
-                    {
-                        Name = "Update Volts Amps Thread",
-                        Priority = ThreadPriority.BelowNormal,// Normal, // MW0LGE_12k9c
-                        IsBackground = true
-                    };
-                    display_volts_amps_thead.Start();
+                    _threadCoordinator.StartThread("DisplayVoltsAmps",
+                        new ThreadStart(readMKIIPAVoltsAmps),
+                        "Update Volts Amps Thread",
+                        ThreadPriority.BelowNormal);
                 }
 
                 if (m_frmCWXForm != null && !m_frmCWXForm.IsDisposed)
@@ -27620,83 +27557,25 @@ namespace Thetis
                     ivac.StopAudioIVAC(1);
                 }
 
-                if (multimeter_thread != null)
-                {
-                    if (!multimeter_thread.Join(/*500*/Math.Max(meter_delay, meter_dig_delay) + 50)) //MW0LGE change to meter delay
-                        multimeter_thread.Abort();
-                }
-                if (rx2_meter_thread != null)
-                {
-                    if (!rx2_meter_thread.Join(/*500*/Math.Max(meter_delay, meter_dig_delay) + 50)) //MW0LGE change to meter delay
-                        rx2_meter_thread.Abort();
-                }
+                // Refactored: Using ThreadCoordinator for thread management
+                _threadCoordinator.StopThread("Multimeter", Math.Max(meter_delay, meter_dig_delay) + 50);
+                _threadCoordinator.StopThread("RX2Meter", Math.Max(meter_delay, meter_dig_delay) + 50);
+
                 //MW0LGE_[2.9.0.7]
-                if (multimeter2_thread_rx1 != null)
-                {
-                    if (!multimeter2_thread_rx1.Join(MeterManager.QuickestUpdateInterval(1, MOX)))
-                        multimeter2_thread_rx1.Abort();
-                }
-                if (multimeter2_thread_rx2 != null)
-                {
-                    if (!multimeter2_thread_rx2.Join(MeterManager.QuickestUpdateInterval(2, MOX)))
-                        multimeter2_thread_rx2.Abort();
-                }
+                _threadCoordinator.StopThread("Multimeter2RX1", MeterManager.QuickestUpdateInterval(1, MOX));
+                _threadCoordinator.StopThread("Multimeter2RX2", MeterManager.QuickestUpdateInterval(2, MOX));
                 //
-                if (rx2_sql_update_thread != null)
-                {
-                    if (!rx2_sql_update_thread.Join(500))
-                        rx2_sql_update_thread.Abort();
-                }
-                if (rx2_sql_update_thread != null)
-                {
-                    if (!rx2_sql_update_thread.Join(500))
-                        rx2_sql_update_thread.Abort();
-                }
-                if (sql_update_thread != null)
-                {
-                    if (!sql_update_thread.Join(500))
-                        sql_update_thread.Abort();
-                }
-                if (noise_gate_update_thread != null)
-                {
-                    if (!noise_gate_update_thread.Join(500))
-                        noise_gate_update_thread.Abort();
-                }
-                if (vox_update_thread != null)
-                {
-                    if (!vox_update_thread.Join(500))
-                        vox_update_thread.Abort();
-                }
-                if (poll_ptt_thread != null)
-                {
-                    if (!poll_ptt_thread.Join(500))
-                        poll_ptt_thread.Abort();
-                }
-                if (poll_cw_thread != null)
-                {
-                    if (!poll_cw_thread.Join(500))
-                        poll_cw_thread.Abort();
-                }
-                if (poll_pa_pwr_thread != null)
-                {
-                    if (!poll_pa_pwr_thread.Join(500))
-                        poll_pa_pwr_thread.Abort();
-                }
-                if(_overload_thread != null)
-                {
-                    if (!_overload_thread.Join(500))
-                        _overload_thread.Abort();
-                }
-                if (poll_tx_inhibit_thead != null)
-                {
-                    if (!poll_tx_inhibit_thead.Join(500))
-                        poll_tx_inhibit_thead.Abort();
-                }
-                if (display_volts_amps_thead != null)
-                {
-                    if (!display_volts_amps_thead.Join(650)) // there is a sleep 600 in there MW0LGE
-                        display_volts_amps_thead.Abort();
-                }
+
+                _threadCoordinator.StopThread("RX2SQLUpdate", 500);
+                _threadCoordinator.StopThread("SQLUpdate", 500);
+                _threadCoordinator.StopThread("NoiseGateUpdate", 500);
+                _threadCoordinator.StopThread("VOXUpdate", 500);
+                _threadCoordinator.StopThread("PollPTT", 500);
+                _threadCoordinator.StopThread("PollCW", 500);
+                _threadCoordinator.StopThread("PollPAPWR", 500);
+                _threadCoordinator.StopThread("Overload", 500);
+                _threadCoordinator.StopThread("PollTXInhibit", 500);
+                _threadCoordinator.StopThread("DisplayVoltsAmps", 650); // there is a sleep 600 in there MW0LGE
                 if (ATUTunetokenSource != null &&
                     ATUTunetokenSource.IsCancellationRequested == false)
                 {
@@ -39405,40 +39284,24 @@ namespace Thetis
 
                     if (chkPower.Checked)
                     {
-                        if (rx2_meter_thread == null || !rx2_meter_thread.IsAlive)
-                        {
-                            rx2_meter_thread = new Thread(new ThreadStart(UpdateRX2MeterData))
-                            {
-                                Name = "RX2 Meter Thread",
-                                Priority = ThreadPriority.Lowest,
-                                IsBackground = true
-                            };
-                            rx2_meter_thread.Start();
-                        }
+                        // Refactored: Using ThreadCoordinator for thread management
+                        _threadCoordinator.StartThread("RX2Meter",
+                            new ThreadStart(UpdateRX2MeterData),
+                            "RX2 Meter Thread",
+                            ThreadPriority.Lowest);
 
                         //multimeter2 MW0LGE_[2.9.0.7]
-                        if (multimeter2_thread_rx2 == null || !multimeter2_thread_rx2.IsAlive)
-                        {
-                            multimeter2_thread_rx2 = new Thread(new ThreadStart(MultiMeter2UpdateRX2))
-                            {
-                                Name = "Multimeter2 RX2 Thread",
-                                Priority = ThreadPriority.Lowest,
-                                IsBackground = true
-                            };
-                            multimeter2_thread_rx2.Start();
-                        }
+                        _threadCoordinator.StartThread("Multimeter2RX2",
+                            new ThreadStart(MultiMeter2UpdateRX2),
+                            "Multimeter2 RX2 Thread",
+                            ThreadPriority.Lowest);
                         //
 
-                        if (rx2_sql_update_thread == null || !rx2_sql_update_thread.IsAlive)
-                        {
-                            rx2_sql_update_thread = new Thread(new ThreadStart(UpdateRX2SQL))
-                            {
-                                Name = "Update RX2 SQL",
-                                Priority = ThreadPriority.Normal,
-                                IsBackground = true
-                            };
-                            rx2_sql_update_thread.Start();
-                        }
+                        _threadCoordinator.StartThread("RX2SQLUpdate",
+                            new ThreadStart(UpdateRX2SQL),
+                            "Update RX2 SQL",
+                            ThreadPriority.Normal);
+                    }
 
                         set_rx2_freq = true;
                         txtVFOBFreq_LostFocus(this, EventArgs.Empty);
