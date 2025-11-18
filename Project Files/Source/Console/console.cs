@@ -1521,6 +1521,9 @@ namespace Thetis
 
             Audio.console = this;
 
+            // Initialize CMASIO sidetone callbacks
+            CMASIOSidetone.InitializeCallbacks();
+
             chkDSPNB2.Enabled = true;
 
             vfoa_hover_digit = -1;
@@ -29349,6 +29352,12 @@ namespace Thetis
             }
 
             bool tx = chkMOX.Checked;
+
+            // Notify CMASIO of TX state change for sidetone
+            if (CurrentAudioCodec == AudioCodec.ASIO)
+            {
+                CMASIOSidetone.SetTXActive(tx);
+            }
 
             //[2.10.1.0]MW0LGE changed
             if (!tx)
