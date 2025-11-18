@@ -16,7 +16,7 @@ Implement synthetic local sidetone generation for CMASIO mode to resolve AGC sat
 ### 1.2 Current Problem
 In CMASIO mode, the sidetone is NOT a true sidetone but a **full-duplex RX monitor** that demodulates the transmitted signal. This causes two critical issues:
 
-1. **AGC Saturation:** RX receiver demodulates the transmitted signal (extremely strong), causing AGC to attenuate heavily. Recovery time is 100-500ms after returning to RX.
+1. **AGC Saturation:** RX receiver demodulates the transmitted signal (extremely strong), causing AGC to attenuate heavily. Recovery time is 1-2s after returning to RX.
 2. **No Independent Volume Control:** RX volume and "sidetone" volume are the same (both are RX audio).
 
 ### 1.3 Solution
@@ -138,7 +138,7 @@ PORT void SetCWSidetone(int enable)
 
 **Target Modes:**
 - **Semi Break-In:** Currently "mute" (no sidetone) → **INJECT SYNTHETIC SIDETONE**
-- **QSK Mode:** Currently uses RX monitor (AGC issue) → **REPLACE WITH SYNTHETIC SIDETONE**
+- **QSK Mode:** Currently uses RX monitor (AGC issue) → **Will remain as is**
 
 ---
 
