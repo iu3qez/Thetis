@@ -36,6 +36,13 @@ void asioOUT(int id, int nsamples, double* buff);
 
 void CallbackASIO(void* inputL, void* inputR, void* outputL, void* outputR);
 
+// CMASIO Sidetone exports
+extern __declspec(dllexport) void setCMASIO_TXActive(int tx_active);
+extern __declspec(dllexport) void setCMASIO_Callbacks(
+	int (*getEnabled)(void),
+	int (*getFreq)(void),
+	double (*getVolume)(void));
+
 extern __declspec(dllimport) long getASIODriverString(void* szData);
 extern __declspec(dllimport) long getASIOBlockNum(void* dwData);
 extern __declspec(dllimport) int prepareASIO(int blocksize, int samplerate, char* asioDriverName, void (*CallbackASIO)(void* inputL, void* inputR, void* outputL, void* outputR));
