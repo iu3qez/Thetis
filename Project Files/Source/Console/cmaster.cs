@@ -1476,4 +1476,133 @@ namespace Thetis
 
 #endregion
 
+    #region CMASIO Sidetone
+
+    public static class CMASIOSidetone
+    {
+        // Callback delegates (must be kept alive to prevent GC collection!)
+        private static NetworkIO.GetSidetoneEnabledDelegate _getEnabledDelegate;
+        private static NetworkIO.GetSidetoneFreqDelegate _getFreqDelegate;
+        private static NetworkIO.GetSidetoneVolumeDelegate _getVolumeDelegate;
+
+        // Initialize callbacks (called during Console startup)
+        public static void InitializeCallbacks()
+        {
+            try
+            {
+                // Create delegates and keep references to prevent GC
+                _getEnabledDelegate = GetCMASIOSidetoneEnabled;
+                _getFreqDelegate = GetCMASIOSidetoneFreq;
+                _getVolumeDelegate = GetCMASIOSidetoneVolume;
+
+                // Register callbacks with C layer
+                NetworkIO.setCMASIO_Callbacks(
+                    _getEnabledDelegate,
+                    _getFreqDelegate,
+                    _getVolumeDelegate);
+
+                System.Diagnostics.Debug.WriteLine("CMASIO: Callbacks initialized successfully");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"CMASIO InitializeCallbacks exception: {ex.Message}");
+            }
+        }
+
+        // Callback: Read sidetone enabled state from existing console parameters
+        private static int GetCMASIOSidetoneEnabled()
+        {
+            try
+            {
+                // CMASIO sidetone is enabled when BOTH conditions are true:
+                // 1. CWSidetone enabled (setup.cs:chkDSPKeyerSidetone)
+                // 2. Semi Break-In mode active (console.cs:chkQSK CheckState.Checked)
+
+                bool sidetone_on = Console.CurrentConsole.CWSidetone;
+                bool semi_breakin = (Console.CurrentConsole.BreakInEnabledState == CheckState.Checked);
+
+                return (sidetone_on && semi_breakin) ? 1 : 0;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"CMASIO GetEnabled exception: {ex.Message}");
+                return 0;
+            }
+        }
+
+        // Callback: Read sidetone frequency from existing console parameter
+        private static int GetCMASIOSidetoneFreq()
+        {
+            try
+            {
+                // Uses existing console.cs:cw_pitch (line 18099)
+                // Set by setup.cs:udDSPCWPitch (Setup > DSP > Keyer > CW Pitch)
+                int freq = Console.CurrentConsole.CWPitch;
+
+                // Sanity check (200-1200 Hz range)
+                if (freq < 200) freq = 200;
+                if (freq > 1200) freq = 1200;
+
+                return freq;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"CMASIO GetFreq exception: {ex.Message}");
+                return 600; // Default fallback
+            }
+        }
+
+        // Callback: Read sidetone volume from existing console parameter
+        private static double GetCMASIOSidetoneVolume()
+        {
+            try
+            {
+                // Uses existing console.cs:qsk_sidetone_volume (line 12913)
+                // Semi Break-In: use TXAF, QSK: use qsk_sidetone_volume
+
+                int volume_percent;
+
+                if (Console.CurrentConsole.BreakInEnabledState == CheckState.Checked)
+                {
+                    // Semi Break-In mode: use TX AF level (0-100)
+                    volume_percent = Console.CurrentConsole.TXAF;
+                }
+                else
+                {
+                    // QSK mode: use QSK sidetone volume (0-100)
+                    volume_percent = Console.CurrentConsole.QSKSidetoneVolume;
+                }
+
+                // Convert to 0.0-1.0 range
+                double volume = (double)volume_percent / 100.0;
+
+                // Sanity check
+                if (volume < 0.0) volume = 0.0;
+                if (volume > 1.0) volume = 1.0;
+
+                return volume;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"CMASIO GetVolume exception: {ex.Message}");
+                return 0.5; // Default fallback 50%
+            }
+        }
+
+        // Notify C layer of TX state change
+        public static void SetTXActive(bool tx_active)
+        {
+            try
+            {
+                NetworkIO.setCMASIO_TXActive(tx_active ? 1 : 0);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"CMASIO SetTXActive exception: {ex.Message}");
+            }
+        }
+    }
+
+    #endregion
+
 }

@@ -362,5 +362,24 @@ namespace Thetis
         [DllImport("ChannelMaster.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void SetCATPort(int port);
 
+        // =================================================================
+        // CMASIO Sidetone - Callback Delegates and P/Invoke
+        // =================================================================
+
+        // Delegate types for CMASIO callbacks (C → C#)
+        public delegate int GetSidetoneEnabledDelegate();
+        public delegate int GetSidetoneFreqDelegate();
+        public delegate double GetSidetoneVolumeDelegate();
+
+        // CMASIO Sidetone P/Invoke imports
+        [DllImport("ChannelMaster.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void setCMASIO_TXActive(int tx_active);
+
+        [DllImport("ChannelMaster.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void setCMASIO_Callbacks(
+            GetSidetoneEnabledDelegate getEnabled,
+            GetSidetoneFreqDelegate getFreq,
+            GetSidetoneVolumeDelegate getVolume);
+
     }
 }
