@@ -427,17 +427,24 @@ public static class CMASIOSidetone
             _getVolumeDelegate);
     }
 
-    // Callback: Read sidetone enabled state from existing console parameter
+    // Callback: Read sidetone enabled state from existing console parameters
     private static int GetCMASIOSidetoneEnabled()
     {
-        // Uses existing console.cs:cw_sidetone (line 14987)
-        return Console.CurrentConsole.CWSidetone ? 1 : 0;
+        // CMASIO sidetone is enabled when BOTH conditions are true:
+        // 1. CWSidetone enabled (setup.cs:chkDSPKeyerSidetone)
+        // 2. Semi Break-In mode active (console.cs:chkQSK CheckState.Checked)
+
+        bool sidetone_on = Console.CurrentConsole.CWSidetone;
+        bool semi_breakin = (Console.CurrentConsole.BreakInEnabledState == CheckState.Checked);
+
+        return (sidetone_on && semi_breakin) ? 1 : 0;
     }
 
     // Callback: Read sidetone frequency from existing console parameter
     private static int GetCMASIOSidetoneFreq()
     {
         // Uses existing console.cs:cw_pitch (line 18099)
+        // Set by setup.cs:udDSPCWPitch (Setup > DSP > Keyer > CW Pitch)
         return Console.CurrentConsole.CWPitch;
     }
 
@@ -509,11 +516,30 @@ CMASIOSidetone.InitializeCallbacks();
 
 The callback-based architecture uses **existing console parameters**, so the user interface remains unchanged:
 
-1. **Sidetone Enable:** Existing "CW Sidetone" checkbox (`console.cs:cw_sidetone`)
-2. **Sidetone Frequency:** Existing "CW Pitch" control (`console.cs:cw_pitch`)
-3. **Sidetone Volume:**
+1. **Sidetone Enable:**
+   - `setup.cs:chkDSPKeyerSidetone` (Setup > DSP > Keyer > Options)
+   - Path: Setup.tcSetup.tpDSP.tcDSP.tpDSPKeyer.grpDSPKeyerOptions.chkDSPKeyerSidetone
+   - Sets `console.cs:cw_sidetone` (line 14987)
+
+2. **Break-In Mode:**
+   - `console.cs:chkQSK` (Console panel, CW section)
+   - Path: Console.panelModeSpecificCW.grpSemiBreakIn.chkQSK
+   - Three states: Manual (OFF) / Semi (SEMI) / QSK
+   - Property: `console.cs:BreakInEnabledState` (line 12995)
+
+3. **Sidetone Frequency:**
+   - `setup.cs:udDSPCWPitch` (Setup > DSP > Keyer > CW Pitch)
+   - Path: Setup.tcSetup.tpDSP.tcDSP.tpDSPKeyer.grpDSPCWPitch.udDSPCWPitch
+   - Sets `console.cs:cw_pitch` (line 18099)
+
+4. **Sidetone Volume:**
    - Semi Break-In: Uses existing "TX AF" slider (`console.cs:TXAF`)
-   - QSK Mode: Uses existing "QSK Sidetone Volume" (`console.cs:qsk_sidetone_volume`)
+   - QSK Mode: Uses existing "QSK Sidetone Volume" (`console.cs:qsk_sidetone_volume`, line 12913)
+
+**Enable Logic:**
+- CMASIO sidetone activates when **BOTH** are true:
+  - `chkDSPKeyerSidetone` checked (sidetone enabled)
+  - `chkQSK` in Semi Break-In mode (CheckState.Checked)
 
 **Benefits:**
 ✅ Zero GUI changes required
@@ -777,12 +803,20 @@ The **callback-based architecture** was chosen to avoid parameter duplication an
 
 ### 12.2 Parameter Mapping
 
-| CMASIO Needs | Existing Console Parameter | Callback |
-|--------------|---------------------------|----------|
-| Sidetone Enabled | `console.cs:cw_sidetone` (line 14987) | `GetCMASIOSidetoneEnabled()` |
-| Sidetone Frequency | `console.cs:cw_pitch` (line 18099) | `GetCMASIOSidetoneFreq()` |
-| Sidetone Volume (Semi) | `console.cs:TXAF` | `GetCMASIOSidetoneVolume()` |
-| Sidetone Volume (QSK) | `console.cs:qsk_sidetone_volume` (line 12913) | `GetCMASIOSidetoneVolume()` |
+| CMASIO Needs | Existing Console Parameter | GUI Control | Callback |
+|--------------|---------------------------|-------------|----------|
+| Sidetone Enabled | `console.cs:cw_sidetone` (line 14987) | `setup.cs:chkDSPKeyerSidetone` | `GetCMASIOSidetoneEnabled()` |
+| Break-In Mode | `console.cs:BreakInEnabledState` (line 12995) | `console.cs:chkQSK` (3 states) | Used in `GetCMASIOSidetoneEnabled()` |
+| Sidetone Frequency | `console.cs:cw_pitch` (line 18099) | `setup.cs:udDSPCWPitch` | `GetCMASIOSidetoneFreq()` |
+| Sidetone Volume (Semi) | `console.cs:TXAF` | TX AF slider | `GetCMASIOSidetoneVolume()` |
+| Sidetone Volume (QSK) | `console.cs:qsk_sidetone_volume` (line 12913) | QSK Volume control | `GetCMASIOSidetoneVolume()` |
+
+**Enable Logic:**
+- CMASIO sidetone is enabled when **BOTH** conditions are true:
+  - `console.CWSidetone == true` (chkDSPKeyerSidetone checked in Setup)
+  - `console.BreakInEnabledState == CheckState.Checked` (Semi Break-In mode active)
+- QSK mode (`CheckState.Indeterminate`) keeps current RX monitor behavior
+- Manual mode (`CheckState.Unchecked`) has no sidetone
 
 ### 12.3 Callback Lifecycle
 
@@ -849,16 +883,30 @@ The **callback-based architecture** was chosen to avoid parameter duplication an
 ### 13.2 Related Functionality and Existing Parameters
 
 **Existing Parameters Used by CMASIO (via callbacks):**
-- **CW Sidetone Enable:** `console.cs:14987` (`cw_sidetone` bool)
-- **CW Pitch (Frequency):** `console.cs:18099` (`cw_pitch` int, 200-1200 Hz)
-- **QSK Sidetone Volume:** `console.cs:12913` (`qsk_sidetone_volume` int, 0-100)
-- **TX AF Level:** `console.cs` (`TXAF` property, used for Semi Break-In volume)
+
+| Parameter | File/Line | GUI Control | Type | Description |
+|-----------|-----------|-------------|------|-------------|
+| `cw_sidetone` | `console.cs:14987` | `setup.cs:chkDSPKeyerSidetone` | bool | Sidetone enable/disable |
+| `BreakInEnabledState` | `console.cs:12995` | `console.cs:chkQSK` | CheckState | Break-In mode (Manual/Semi/QSK) |
+| `cw_pitch` | `console.cs:18099` | `setup.cs:udDSPCWPitch` | int | Sidetone frequency (200-1200 Hz) |
+| `qsk_sidetone_volume` | `console.cs:12913` | QSK Sidetone Volume | int | Volume for QSK mode (0-100) |
+| `TXAF` | `console.cs` | TX AF slider | int | Volume for Semi mode (0-100) |
+
+**GUI Control Paths (for reference):**
+- Sidetone Enable: `Setup.tcSetup.tpDSP.tcDSP.tpDSPKeyer.grpDSPKeyerOptions.chkDSPKeyerSidetone`
+- Sidetone Frequency: `Setup.tcSetup.tpDSP.tcDSP.tpDSPKeyer.grpDSPCWPitch.udDSPCWPitch`
+- Break-In Mode: `Console.panelModeSpecificCW.grpSemiBreakIn.chkQSK`
 
 **Related Functionality:**
 - **CW Pitch Property:** `console.cs:18103-18119` (CWPitch property getter/setter)
+- **CW Pitch Setup Property:** `setup.cs:5622-5628` (CWPitch property in Setup)
 - **CW Sidetone (Hardware):** `console.cs:12969-12994` (setCWSideToneVolume - network sidetone)
+- **CW Sidetone Property:** `console.cs:14988-15001` (CWSidetone property getter/setter)
 - **Break-In Delay:** `console.cs:18419-18429` (BreakInDelay property)
-- **Break-In Mode:** `console.cs` (CurrentBreakInMode property - QSK/Semi/Manual)
+- **Break-In State:** `console.cs:12995-13005` (BreakInEnabledState property)
+- **Setup Event Handlers:**
+  - `setup.cs:8749-8757` (chkDSPKeyerSidetone_CheckedChanged - sidetone enable)
+  - `setup.cs:8680-8684` (udDSPCWPitch_ValueChanged - frequency)
 - **ASIO Callback:** `cmasio.c:122-176` (CallbackASIO function)
 
 ---
