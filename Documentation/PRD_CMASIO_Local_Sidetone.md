@@ -16,7 +16,7 @@ Implement synthetic local sidetone generation for CMASIO mode to resolve AGC sat
 ### 1.2 Current Problem
 In CMASIO mode, the sidetone is NOT a true sidetone but a **full-duplex RX monitor** that demodulates the transmitted signal. This causes two critical issues:
 
-1. **AGC Saturation:** RX receiver demodulates the transmitted signal (extremely strong), causing AGC to attenuate heavily. Recovery time is 1-2s after returning to RX.
+1. **AGC Saturation:** RX receiver demodulates the transmitted signal (extremely strong), causing AGC to attenuate heavily. Recovery time is **1-2 seconds** after returning to RX.
 2. **No Independent Volume Control:** RX volume and "sidetone" volume are the same (both are RX audio).
 
 ### 1.3 Solution
@@ -153,19 +153,27 @@ typedef struct _cmasio
 {
     // ... existing fields ...
 
-    // NEW: Sidetone generation
+    // NEW: Sidetone generation - LOCAL STATE ONLY
+    // NOTE: Sidetone parameters (enabled, freq, volume) are NOT duplicated here.
+    //       They are read via callbacks from existing C# application state:
+    //       - sidetone_enabled → console.cs:cw_sidetone (bool)
+    //       - sidetone_freq → console.cs:cw_pitch (int Hz)
+    //       - sidetone_volume → console.cs:qsk_sidetone_volume (int 0-100)
+
     int tx_active;                   // Flag: 1 = TX mode, 0 = RX mode
-    int sidetone_enabled;            // Flag: enable sidetone generation
-    double sidetone_freq;            // Frequency in Hz (default: 600.0)
-    double sidetone_volume;          // Volume 0.0-1.0 (default: 0.5)
     double sidetone_phase;           // Oscillator phase accumulator
-    int sidetone_fade_samples;       // Fade in/out samples (default: 48 @ 48kHz = 1ms)
     double* sidetone_buffer;         // Buffer for generated sidetone
 
-    // NEW: Fade state management
+    // Fade state management
     int fade_state;                  // 0=idle, 1=fade_in, 2=active, 3=fade_out
     int fade_counter;                // Current fade sample count
+    int fade_samples;                // Fade duration (const: 48 @ 48kHz = 1ms)
 } cmasio, *CMASIO;
+
+// Callback function pointers for reading C# application state
+static int (*pGetSidetoneEnabled)(void) = NULL;
+static int (*pGetSidetoneFreq)(void) = NULL;
+static double (*pGetSidetoneVolume)(void) = NULL;
 ```
 
 ### 4.2 Initialization
@@ -177,13 +185,10 @@ void create_cmasio()
 {
     // ... existing initialization ...
 
-    // NEW: Initialize sidetone parameters
+    // NEW: Initialize sidetone state (LOCAL ONLY - no parameter duplication)
     pcma->tx_active = 0;
-    pcma->sidetone_enabled = 1;              // Enabled by default
-    pcma->sidetone_freq = 600.0;             // 600 Hz default
-    pcma->sidetone_volume = 0.5;             // 50% volume
     pcma->sidetone_phase = 0.0;
-    pcma->sidetone_fade_samples = 48;        // 1ms @ 48kHz
+    pcma->fade_samples = 48;                 // 1ms @ 48kHz
     pcma->fade_state = 0;
     pcma->fade_counter = 0;
 
@@ -193,6 +198,9 @@ void create_cmasio()
     if (pcma->sidetone_buffer == NULL) {
         OutputDebugStringA("ERROR: Failed to allocate sidetone buffer");
     }
+
+    // NOTE: Callbacks for enabled/freq/volume will be set from C# during startup
+    // via setCMASIO_Callbacks()
 }
 ```
 
@@ -223,35 +231,42 @@ void destroy_cmasio()
 
 ```c
 // Generate synthetic sidetone with fade in/out
-void generateLocalSidetone(double* buffer, int nsamples,
-                           double freq, double volume,
-                           double* phase, int fade_state,
-                           int* fade_counter, int fade_samples,
-                           int samplerate)
+// Parameters are read dynamically via callbacks (no duplication)
+void generateLocalSidetone(double* buffer, int nsamples, int samplerate)
 {
+    // Read parameters from C# via callbacks
+    if (pGetSidetoneFreq == NULL || pGetSidetoneVolume == NULL)
+    {
+        memset(buffer, 0, nsamples * sizeof(complex));
+        return;
+    }
+
+    double freq = (double)pGetSidetoneFreq();     // Read from console.cw_pitch
+    double volume = pGetSidetoneVolume();          // Read from console.qsk_sidetone_volume
+
     double delta_phase = 2.0 * M_PI * freq / samplerate;
 
     for (int i = 0; i < nsamples; i++)
     {
         // Generate sine wave
-        double sample = sin(*phase) * volume;
+        double sample = sin(pcma->sidetone_phase) * volume;
 
         // Apply fade envelope
         double envelope = 1.0;
-        if (fade_state == 1)  // Fade IN
+        if (pcma->fade_state == 1)  // Fade IN
         {
-            envelope = (double)(*fade_counter) / fade_samples;
-            (*fade_counter)++;
-            if (*fade_counter >= fade_samples) {
-                fade_state = 2;  // Transition to active
+            envelope = (double)(pcma->fade_counter) / pcma->fade_samples;
+            pcma->fade_counter++;
+            if (pcma->fade_counter >= pcma->fade_samples) {
+                pcma->fade_state = 2;  // Transition to active
             }
         }
-        else if (fade_state == 3)  // Fade OUT
+        else if (pcma->fade_state == 3)  // Fade OUT
         {
-            envelope = 1.0 - ((double)(*fade_counter) / fade_samples);
-            (*fade_counter)++;
-            if (*fade_counter >= fade_samples) {
-                fade_state = 0;  // Transition to idle
+            envelope = 1.0 - ((double)(pcma->fade_counter) / pcma->fade_samples);
+            pcma->fade_counter++;
+            if (pcma->fade_counter >= pcma->fade_samples) {
+                pcma->fade_state = 0;  // Transition to idle
                 envelope = 0.0;
             }
         }
@@ -263,9 +278,9 @@ void generateLocalSidetone(double* buffer, int nsamples,
         buffer[2*i+1] = sample;    // Right
 
         // Update phase
-        *phase += delta_phase;
-        if (*phase >= 2.0 * M_PI)
-            *phase -= 2.0 * M_PI;
+        pcma->sidetone_phase += delta_phase;
+        if (pcma->sidetone_phase >= 2.0 * M_PI)
+            pcma->sidetone_phase -= 2.0 * M_PI;
     }
 }
 ```
@@ -279,19 +294,15 @@ void asioOUT(int id, int nsamples, double* buff)
 {
     if (!pcma->run) return;
 
-    // NEW: Check if TX is active and sidetone should be generated
-    if (pcma->tx_active && pcma->sidetone_enabled)
+    // NEW: Check if TX is active and sidetone enabled (via callback)
+    int sidetone_enabled = (pGetSidetoneEnabled != NULL) ? pGetSidetoneEnabled() : 0;
+
+    if (pcma->tx_active && sidetone_enabled)
     {
         // GENERATE LOCAL SIDETONE instead of passing RX audio
         generateLocalSidetone(
             pcma->sidetone_buffer,
             nsamples,
-            pcma->sidetone_freq,
-            pcma->sidetone_volume,
-            &pcma->sidetone_phase,
-            pcma->fade_state,
-            &pcma->fade_counter,
-            pcma->sidetone_fade_samples,
             pcm->audio_outrate  // samplerate
         );
 
@@ -313,7 +324,7 @@ void asioOUT(int id, int nsamples, double* buff)
 }
 ```
 
-### 4.6 TX State Management
+### 4.6 TX State Management and Callback Setup
 
 **File:** `Project Files/Source/ChannelMaster/cmasio.c` (new exports)
 
@@ -345,31 +356,19 @@ PORT void setCMASIO_TXActive(int tx_active)
     }
 }
 
-// Set sidetone frequency (Hz)
-PORT void setCMASIO_SidetoneFreq(double freq)
+// Set callback function pointers (called once during C# initialization)
+PORT void setCMASIO_Callbacks(
+    int (*getEnabled)(void),
+    int (*getFreq)(void),
+    double (*getVolume)(void))
 {
     if (pcm->audioCodecId != ASIO) return;
-    if (freq >= 200.0 && freq <= 1200.0)  // Sanity check
-    {
-        pcma->sidetone_freq = freq;
-    }
-}
 
-// Set sidetone volume (0.0-1.0)
-PORT void setCMASIO_SidetoneVolume(double volume)
-{
-    if (pcm->audioCodecId != ASIO) return;
-    if (volume >= 0.0 && volume <= 1.0)  // Sanity check
-    {
-        pcma->sidetone_volume = volume;
-    }
-}
+    pGetSidetoneEnabled = getEnabled;
+    pGetSidetoneFreq = getFreq;
+    pGetSidetoneVolume = getVolume;
 
-// Enable/disable sidetone generation
-PORT void setCMASIO_SidetoneEnable(int enable)
-{
-    if (pcm->audioCodecId != ASIO) return;
-    pcma->sidetone_enabled = enable;
+    OutputDebugStringA("CMASIO: Callbacks registered for sidetone parameters");
 }
 ```
 
@@ -377,27 +376,30 @@ PORT void setCMASIO_SidetoneEnable(int enable)
 
 ```c
 extern __declspec(dllexport) void setCMASIO_TXActive(int tx_active);
-extern __declspec(dllexport) void setCMASIO_SidetoneFreq(double freq);
-extern __declspec(dllexport) void setCMASIO_SidetoneVolume(double volume);
-extern __declspec(dllexport) void setCMASIO_SidetoneEnable(int enable);
+extern __declspec(dllexport) void setCMASIO_Callbacks(
+    int (*getEnabled)(void),
+    int (*getFreq)(void),
+    double (*getVolume)(void));
 ```
 
-### 4.7 C# Integration
+### 4.7 C# Integration (Callback-Based Architecture)
 
 **File:** `Project Files/Source/Console/HPSDR/NetworkIOImports.cs` (add imports)
 
 ```csharp
+// Delegate types for C callbacks
+public delegate int GetSidetoneEnabledDelegate();
+public delegate int GetSidetoneFreqDelegate();
+public delegate double GetSidetoneVolumeDelegate();
+
 [DllImport("ChannelMaster.dll", CallingConvention = CallingConvention.Cdecl)]
 public static extern void setCMASIO_TXActive(int tx_active);
 
 [DllImport("ChannelMaster.dll", CallingConvention = CallingConvention.Cdecl)]
-public static extern void setCMASIO_SidetoneFreq(double freq);
-
-[DllImport("ChannelMaster.dll", CallingConvention = CallingConvention.Cdecl)]
-public static extern void setCMASIO_SidetoneVolume(double volume);
-
-[DllImport("ChannelMaster.dll", CallingConvention = CallingConvention.Cdecl)]
-public static extern void setCMASIO_SidetoneEnable(int enable);
+public static extern void setCMASIO_Callbacks(
+    GetSidetoneEnabledDelegate getEnabled,
+    GetSidetoneFreqDelegate getFreq,
+    GetSidetoneVolumeDelegate getVolume);
 ```
 
 **File:** `Project Files/Source/Console/cmaster.cs` (add wrapper class)
@@ -405,25 +407,61 @@ public static extern void setCMASIO_SidetoneEnable(int enable);
 ```csharp
 public static class CMASIOSidetone
 {
+    // Callback delegates (must be kept alive to prevent GC collection!)
+    private static NetworkIO.GetSidetoneEnabledDelegate _getEnabledDelegate;
+    private static NetworkIO.GetSidetoneFreqDelegate _getFreqDelegate;
+    private static NetworkIO.GetSidetoneVolumeDelegate _getVolumeDelegate;
+
+    // Initialize callbacks (called during Console startup)
+    public static void InitializeCallbacks()
+    {
+        // Create delegates and keep references to prevent GC
+        _getEnabledDelegate = GetCMASIOSidetoneEnabled;
+        _getFreqDelegate = GetCMASIOSidetoneFreq;
+        _getVolumeDelegate = GetCMASIOSidetoneVolume;
+
+        // Register callbacks with C layer
+        NetworkIO.setCMASIO_Callbacks(
+            _getEnabledDelegate,
+            _getFreqDelegate,
+            _getVolumeDelegate);
+    }
+
+    // Callback: Read sidetone enabled state from existing console parameter
+    private static int GetCMASIOSidetoneEnabled()
+    {
+        // Uses existing console.cs:cw_sidetone (line 14987)
+        return Console.CurrentConsole.CWSidetone ? 1 : 0;
+    }
+
+    // Callback: Read sidetone frequency from existing console parameter
+    private static int GetCMASIOSidetoneFreq()
+    {
+        // Uses existing console.cs:cw_pitch (line 18099)
+        return Console.CurrentConsole.CWPitch;
+    }
+
+    // Callback: Read sidetone volume from existing console parameter
+    private static double GetCMASIOSidetoneVolume()
+    {
+        // Uses existing console.cs:qsk_sidetone_volume (line 12913)
+        // Semi Break-In: use TXAF, QSK: use qsk_sidetone_volume
+        if (Console.CurrentConsole.CurrentBreakInMode == BreakIn.Semi)
+        {
+            // For Semi mode, use TX AF level (0-100)
+            return (double)Console.CurrentConsole.TXAF / 100.0;
+        }
+        else
+        {
+            // For other modes, use QSK sidetone volume
+            return (double)Console.CurrentConsole.QSKSidetoneVolume / 100.0;
+        }
+    }
+
+    // Notify C layer of TX state change
     public static void SetTXActive(bool tx_active)
     {
         NetworkIO.setCMASIO_TXActive(tx_active ? 1 : 0);
-    }
-
-    public static void SetFrequency(int freq_hz)
-    {
-        NetworkIO.setCMASIO_SidetoneFreq((double)freq_hz);
-    }
-
-    public static void SetVolume(int volume_percent)
-    {
-        double volume = (double)volume_percent / 100.0;
-        NetworkIO.setCMASIO_SidetoneVolume(volume);
-    }
-
-    public static void SetEnabled(bool enabled)
-    {
-        NetworkIO.setCMASIO_SidetoneEnable(enabled ? 1 : 0);
     }
 }
 ```
@@ -445,7 +483,7 @@ public bool MOX
             // ... existing MOX logic ...
 
             // NEW: Notify CMASIO of TX state change
-            if (CurrentAudioCodec == AudioCodec.ASIO)  // Check if using CMASIO
+            if (CurrentAudioCodec == AudioCodec.ASIO)
             {
                 CMASIOSidetone.SetTXActive(value);
             }
@@ -456,64 +494,32 @@ public bool MOX
 }
 ```
 
-### 4.8 GUI Controls
+**File:** `Project Files/Source/Console/console.cs` (initialize callbacks during startup)
 
-**File:** `Project Files/Source/Console/setup.cs` (add to CW/ASIO section)
+In the Console constructor or initialization method (e.g., `setupPowerThread()` or `InitializeComponent()`):
 
 ```csharp
-// Add these controls to the setup form CW/ASIO tab:
-
-private NumericUpDownTS udCMASIOSidetoneFreq;
-private NumericUpDownTS udCMASIOSidetoneVolume;
-private CheckBoxTS chkCMASIOSidetoneEnable;
-
-private void InitializeCMASIOControls()
-{
-    // Sidetone Frequency (Hz)
-    udCMASIOSidetoneFreq = new NumericUpDownTS();
-    udCMASIOSidetoneFreq.Minimum = 200;
-    udCMASIOSidetoneFreq.Maximum = 1200;
-    udCMASIOSidetoneFreq.Value = 600;  // Default
-    udCMASIOSidetoneFreq.Increment = 50;
-    udCMASIOSidetoneFreq.ValueChanged += udCMASIOSidetoneFreq_ValueChanged;
-
-    // Sidetone Volume (%)
-    udCMASIOSidetoneVolume = new NumericUpDownTS();
-    udCMASIOSidetoneVolume.Minimum = 0;
-    udCMASIOSidetoneVolume.Maximum = 100;
-    udCMASIOSidetoneVolume.Value = 50;  // Default 50%
-    udCMASIOSidetoneVolume.Increment = 5;
-    udCMASIOSidetoneVolume.ValueChanged += udCMASIOSidetoneVolume_ValueChanged;
-
-    // Sidetone Enable
-    chkCMASIOSidetoneEnable = new CheckBoxTS();
-    chkCMASIOSidetoneEnable.Text = "CMASIO Local Sidetone";
-    chkCMASIOSidetoneEnable.Checked = true;
-    chkCMASIOSidetoneEnable.CheckedChanged += chkCMASIOSidetoneEnable_CheckedChanged;
-}
-
-private void udCMASIOSidetoneFreq_ValueChanged(object sender, EventArgs e)
-{
-    if (initializing) return;
-    CMASIOSidetone.SetFrequency((int)udCMASIOSidetoneFreq.Value);
-}
-
-private void udCMASIOSidetoneVolume_ValueChanged(object sender, EventArgs e)
-{
-    if (initializing) return;
-    CMASIOSidetone.SetVolume((int)udCMASIOSidetoneVolume.Value);
-}
-
-private void chkCMASIOSidetoneEnable_CheckedChanged(object sender, EventArgs e)
-{
-    if (initializing) return;
-    CMASIOSidetone.SetEnabled(chkCMASIOSidetoneEnable.Checked);
-
-    // Enable/disable frequency and volume controls
-    udCMASIOSidetoneFreq.Enabled = chkCMASIOSidetoneEnable.Checked;
-    udCMASIOSidetoneVolume.Enabled = chkCMASIOSidetoneEnable.Checked;
-}
+// Initialize CMASIO callbacks during startup
+CMASIOSidetone.InitializeCallbacks();
 ```
+
+### 4.8 Existing GUI Controls (No Changes Required!)
+
+**Using existing controls - NO NEW GUI needed:**
+
+The callback-based architecture uses **existing console parameters**, so the user interface remains unchanged:
+
+1. **Sidetone Enable:** Existing "CW Sidetone" checkbox (`console.cs:cw_sidetone`)
+2. **Sidetone Frequency:** Existing "CW Pitch" control (`console.cs:cw_pitch`)
+3. **Sidetone Volume:**
+   - Semi Break-In: Uses existing "TX AF" slider (`console.cs:TXAF`)
+   - QSK Mode: Uses existing "QSK Sidetone Volume" (`console.cs:qsk_sidetone_volume`)
+
+**Benefits:**
+✅ Zero GUI changes required
+✅ No new database columns needed
+✅ Settings already persist via existing database schema
+✅ Users already familiar with these controls
 
 ---
 
@@ -523,11 +529,13 @@ private void chkCMASIOSidetoneEnable_CheckedChanged(object sender, EventArgs e)
 
 | Benefit | Current (RX Monitor) | Proposed (Synthetic) |
 |---------|---------------------|----------------------|
-| **AGC Recovery** | 100-500ms delay | Instant (no AGC saturation) |
-| **Volume Control** | Coupled with RX | Independent control |
+| **AGC Recovery** | **1-2 seconds delay** | Instant (no AGC saturation) |
+| **Volume Control** | Coupled with RX | Independent control (existing sliders) |
 | **Audio Quality** | Demodulated (artifacts) | Pure sine wave |
 | **Latency** | Demodulation delay | Generation only (~0.5ms) |
 | **CPU Usage** | RX DSP chain active | Minimal (simple sine) |
+| **GUI Changes** | N/A | **None required!** (uses existing controls) |
+| **Parameter Duplication** | N/A | **Zero** (callback-based) |
 
 ### 5.2 Impact Analysis
 
@@ -589,47 +597,21 @@ private void chkCMASIOSidetoneEnable_CheckedChanged(object sender, EventArgs e)
 
 ---
 
-## 7. Configuration & Persistence
+## 7. Configuration & Persistence (No Changes Required!)
 
-### 7.1 Database Schema
+**Using existing database schema - NO NEW COLUMNS needed:**
 
-Add to `Project Files/Source/Console/Database.cs`:
+Settings automatically persist via existing console parameters:
 
-```csharp
-// Table: State
-// New columns:
-CREATE TABLE IF NOT EXISTS State (
-    ...
-    CMASIOSidetoneEnable INTEGER DEFAULT 1,
-    CMASIOSidetoneFreq INTEGER DEFAULT 600,
-    CMASIOSidetoneVolume INTEGER DEFAULT 50,
-    ...
-);
-```
+- **CW Sidetone Enable:** Already saved via `console.cs:cw_sidetone`
+- **CW Pitch (frequency):** Already saved via `console.cs:cw_pitch`
+- **Sidetone Volume:** Already saved via `console.cs:qsk_sidetone_volume` and `console.cs:TXAF`
 
-### 7.2 Save/Load
-
-```csharp
-// In console.cs or setup.cs
-private void SaveCMASIOSettings()
-{
-    DB.SaveVar("State", "CMASIOSidetoneEnable", chkCMASIOSidetoneEnable.Checked);
-    DB.SaveVar("State", "CMASIOSidetoneFreq", (int)udCMASIOSidetoneFreq.Value);
-    DB.SaveVar("State", "CMASIOSidetoneVolume", (int)udCMASIOSidetoneVolume.Value);
-}
-
-private void LoadCMASIOSettings()
-{
-    chkCMASIOSidetoneEnable.Checked = DB.GetVarBool("State", "CMASIOSidetoneEnable", true);
-    udCMASIOSidetoneFreq.Value = DB.GetVarInt("State", "CMASIOSidetoneFreq", 600);
-    udCMASIOSidetoneVolume.Value = DB.GetVarInt("State", "CMASIOSidetoneVolume", 50);
-
-    // Apply to CMASIO
-    CMASIOSidetone.SetEnabled(chkCMASIOSidetoneEnable.Checked);
-    CMASIOSidetone.SetFrequency((int)udCMASIOSidetoneFreq.Value);
-    CMASIOSidetone.SetVolume((int)udCMASIOSidetoneVolume.Value);
-}
-```
+**Benefits:**
+✅ Zero database schema changes
+✅ Settings persist automatically via existing mechanisms
+✅ No migration required
+✅ Backward compatible with older database versions
 
 ---
 
@@ -660,38 +642,55 @@ private void LoadCMASIOSettings()
 
 | File Path | Changes | Lines |
 |-----------|---------|-------|
-| `ChannelMaster/cmasio.h` | Add struct fields, exports | +15 |
-| `ChannelMaster/cmasio.c` | Add generator, modify asioOUT(), exports | +150 |
-| `Console/HPSDR/NetworkIOImports.cs` | Add DllImports | +12 |
-| `Console/cmaster.cs` | Add wrapper class | +30 |
-| `Console/console.cs` | Hook MOX changes | +5 |
-| `Console/setup.cs` | Add GUI controls, event handlers | +80 |
-| `Console/Database.cs` | Add schema columns, save/load | +20 |
+| `ChannelMaster/cmasio.h` | Add struct fields (LOCAL ONLY), callback pointers, exports | +12 |
+| `ChannelMaster/cmasio.c` | Add generator, modify asioOUT(), callback setup, TX state | +85 |
+| `Console/HPSDR/NetworkIOImports.cs` | Add DllImports, delegates | +10 |
+| `Console/cmaster.cs` | Add wrapper class with callbacks | +65 |
+| `Console/console.cs` | Hook MOX changes, initialize callbacks | +8 |
 
-**Total Estimated LOC:** ~312 lines (including comments)
+**Total Estimated LOC:** ~180 lines (including comments)
+
+**Files NOT modified (using existing):**
+- ❌ `Console/setup.cs` - No GUI changes
+- ❌ `Console/Database.cs` - No schema changes
 
 ### 9.2 Key Functions
 
 | Function | File | Purpose |
 |----------|------|---------|
-| `generateLocalSidetone()` | cmasio.c | Generate sine wave with fade |
-| `asioOUT()` | cmasio.c | Modified to inject sidetone |
-| `setCMASIO_TXActive()` | cmasio.c | Notify TX state change |
-| `CMASIOSidetone.*` | cmaster.cs | C# wrapper API |
-| `MOX` property | console.cs | Hook to notify CMASIO |
+| `generateLocalSidetone()` | cmasio.c | Generate sine wave with fade (uses callbacks) |
+| `asioOUT()` | cmasio.c | Modified to inject sidetone (reads enabled via callback) |
+| `setCMASIO_TXActive()` | cmasio.c | Notify TX state change (fade in/out) |
+| `setCMASIO_Callbacks()` | cmasio.c | Register C# callbacks for parameter access |
+| `CMASIOSidetone.InitializeCallbacks()` | cmaster.cs | Register callbacks during startup |
+| `GetCMASIOSidetoneEnabled()` | cmaster.cs | Callback to read `console.cw_sidetone` |
+| `GetCMASIOSidetoneFreq()` | cmaster.cs | Callback to read `console.cw_pitch` |
+| `GetCMASIOSidetoneVolume()` | cmaster.cs | Callback to read `console.qsk_sidetone_volume` or `TXAF` |
+| `MOX` property | console.cs | Hook to notify CMASIO of TX state |
 
 ### 9.3 Integration Points
 
-1. **MOX State Detection:**
+1. **Callback Registration (Startup):**
+   - `CMASIOSidetone.InitializeCallbacks()` called during console initialization
+   - Registers three callbacks: enabled, freq, volume
+   - Delegates kept alive to prevent GC collection
+
+2. **MOX State Detection:**
    - `console.cs:MOX` property setter
    - `Audio.MOX` changes
    - CAT command MOX changes
+   - All call `CMASIOSidetone.SetTXActive()`
 
-2. **Break-In Mode:**
+3. **Parameter Reading (via Callbacks):**
+   - `console.cs:cw_sidetone` → sidetone enabled/disabled
+   - `console.cs:cw_pitch` → sidetone frequency (200-1200 Hz)
+   - `console.cs:qsk_sidetone_volume` or `TXAF` → sidetone volume (0-100%)
+
+4. **Break-In Mode:**
    - `console.cs:CurrentBreakInMode` (QSK/Semi/Manual)
-   - `NetworkIO.SetCWHangTime()` (break-in delay)
+   - Used in volume callback to select TXAF vs qsk_sidetone_volume
 
-3. **Audio Codec Selection:**
+5. **Audio Codec Selection:**
    - `cmaster.cs:audioCodecId == ASIO`
    - `CMASIOConfig.cs` (registry settings)
 
@@ -701,69 +700,165 @@ private void LoadCMASIOSettings()
 
 ### 10.1 Functional Requirements
 
-- [ ] Sidetone audible during TX in Semi and QSK modes
+- [ ] Sidetone audible during TX in Semi Break-In mode (currently mute)
+- [ ] QSK mode remains unchanged (keep "as is" per user request)
 - [ ] No sidetone in Manual mode (PTT only)
-- [ ] Sidetone frequency adjustable 200-1200 Hz
-- [ ] Sidetone volume adjustable 0-100% (independent of RX)
+- [ ] Sidetone frequency follows existing "CW Pitch" control (200-1200 Hz)
+- [ ] Sidetone volume follows existing "TX AF" or "QSK Sidetone Volume" (independent of RX)
+- [ ] Sidetone enable/disable follows existing "CW Sidetone" checkbox
 - [ ] Fade in/out < 2ms (no clicks)
-- [ ] Settings persist across restarts
+- [ ] Settings persist automatically via existing database (no new columns)
 
 ### 10.2 Performance Requirements
 
-- [ ] AGC recovery < 10ms (vs. 100-500ms current)
+- [ ] AGC recovery < 10ms (vs. **1-2 seconds** current)
 - [ ] Sidetone latency < 5ms (key-down to audio)
 - [ ] CPU overhead < 1%
 - [ ] No audio dropouts during fast CW (40+ WPM)
+- [ ] No parameter duplication (callbacks read from C#)
 
 ### 10.3 User Experience
 
-- [ ] GUI controls intuitive and accessible
-- [ ] Settings saved per-band (optional enhancement)
-- [ ] Disable option available (fallback to current behavior)
+- [ ] **Zero GUI changes** (uses existing controls)
+- [ ] **Zero new database columns** (uses existing parameters)
+- [ ] Disable option available via existing "CW Sidetone" checkbox
 - [ ] No impact on non-CMASIO modes
+- [ ] Automatic synchronization (GUI changes immediate)
 
 ---
 
 ## 11. Rollout Plan
 
 ### Phase 1: Core Implementation (Week 1)
-- Implement `generateLocalSidetone()` function
-- Modify `asioOUT()` for TX detection
-- Add C exports and DllImports
+- Add callback function pointers to cmasio.h
+- Implement `generateLocalSidetone()` function with callback-based parameter reading
+- Modify `asioOUT()` for TX detection (read enabled via callback)
+- Add `setCMASIO_TXActive()` for TX state management
+- Add `setCMASIO_Callbacks()` for callback registration
 
-### Phase 2: Integration (Week 2)
-- Hook MOX changes in console.cs
-- Add C# wrapper class
-- Basic GUI controls (frequency, volume, enable)
+### Phase 2: C# Integration (Week 2)
+- Add DllImports and delegates in NetworkIOImports.cs
+- Implement C# wrapper class with callback providers
+- Create `GetCMASIOSidetoneEnabled()`, `GetCMASIOSidetoneFreq()`, `GetCMASIOSidetoneVolume()` callbacks
+- Hook MOX changes in console.cs to call `SetTXActive()`
+- Initialize callbacks during console startup
 
 ### Phase 3: Testing & Refinement (Week 3)
-- Unit tests for generator
+- Unit tests for generator (verify callbacks read correct values)
 - Integration tests with real hardware
 - Tune fade timing for click-free operation
+- Verify existing GUI controls work correctly (no new controls!)
+- Test parameter synchronization (callback accuracy)
 
-### Phase 4: Polish & Documentation (Week 4)
-- Database persistence
-- User documentation
-- Code review and merge
+### Phase 4: Documentation & Merge (Week 4)
+- User documentation (explain which existing controls affect CMASIO sidetone)
+- Code review
+- Merge to main branch
 
 ---
 
-## 12. References
+## 12. Architecture: Callback-Based Parameter Access
 
-### 12.1 Related Code Files
+### 12.1 Design Rationale
+
+The **callback-based architecture** was chosen to avoid parameter duplication and maintain clean separation of concerns:
+
+**Problem Avoided:**
+- ❌ Duplicating `sidetone_enabled`, `sidetone_freq`, `sidetone_volume` in CMASIO struct
+- ❌ Creating new GUI controls for CMASIO-specific settings
+- ❌ Adding new database columns for persistence
+- ❌ Synchronizing duplicate parameters between C and C#
+
+**Solution:**
+- ✅ CMASIO reads parameters **on-demand** via C→C# callbacks
+- ✅ Single source of truth (existing console parameters)
+- ✅ Zero duplication, automatic synchronization
+- ✅ Minimal CMASIO state (only local: phase, fade, buffer)
+
+### 12.2 Parameter Mapping
+
+| CMASIO Needs | Existing Console Parameter | Callback |
+|--------------|---------------------------|----------|
+| Sidetone Enabled | `console.cs:cw_sidetone` (line 14987) | `GetCMASIOSidetoneEnabled()` |
+| Sidetone Frequency | `console.cs:cw_pitch` (line 18099) | `GetCMASIOSidetoneFreq()` |
+| Sidetone Volume (Semi) | `console.cs:TXAF` | `GetCMASIOSidetoneVolume()` |
+| Sidetone Volume (QSK) | `console.cs:qsk_sidetone_volume` (line 12913) | `GetCMASIOSidetoneVolume()` |
+
+### 12.3 Callback Lifecycle
+
+```
+1. Console Startup
+   ↓
+2. CMASIOSidetone.InitializeCallbacks()
+   ↓
+3. Create delegates (kept alive to prevent GC)
+   ↓
+4. Call setCMASIO_Callbacks() (C layer)
+   ↓
+5. C layer stores function pointers
+   ↓
+6. ASIO Callback (audio thread)
+   ↓
+7. generateLocalSidetone() called
+   ↓
+8. Reads freq/volume via pGetSidetoneFreq(), pGetSidetoneVolume()
+   ↓
+9. Callbacks execute in C# (read console properties)
+   ↓
+10. Return current values to C
+```
+
+### 12.4 Thread Safety Considerations
+
+**Callback Execution:**
+- Callbacks executed from ASIO audio thread (real-time priority)
+- Read-only access to console properties (no modification)
+- Simple property getters (minimal latency)
+
+**GC Protection:**
+- Delegates stored in static fields (`_getEnabledDelegate`, etc.)
+- Prevents garbage collection during application lifetime
+- Function pointers remain valid until application exit
+
+### 12.5 Benefits Summary
+
+| Aspect | Traditional (Duplicate) | Callback-Based (Chosen) |
+|--------|------------------------|-------------------------|
+| **LOC** | ~312 lines | **~180 lines** (42% reduction) |
+| **GUI Changes** | New controls required | **Zero** |
+| **Database Changes** | New columns required | **Zero** |
+| **Synchronization** | Manual, error-prone | **Automatic** |
+| **Single Source of Truth** | No (duplicated) | **Yes** |
+| **User Confusion** | Two places to set values | **One place** (existing) |
+| **Maintenance** | Higher (keep in sync) | **Lower** |
+
+---
+
+## 13. References
+
+### 13.1 Related Code Files
 
 - `Project Files/Source/ChannelMaster/cmasio.c` - CMASIO audio routing
 - `Project Files/Source/ChannelMaster/cmasio.h` - CMASIO header
 - `Project Files/Source/Console/console.cs` - Main console (MOX, break-in)
 - `Project Files/Source/Console/enums.cs` - BreakIn enum definition
 - `Project Files/Source/ChannelMaster/netInterface.c` - Network protocol
-- `Project Files/Source/Console/setup.cs` - Setup form (CW controls)
+- `Project Files/Source/Console/HPSDR/NetworkIOImports.cs` - DllImports
+- `Project Files/Source/Console/cmaster.cs` - C# wrapper classes
 
-### 12.2 Related Functionality
+### 13.2 Related Functionality and Existing Parameters
 
-- **CW Pitch:** `console.cs:18103-18119` (CWPitch property)
-- **CW Sidetone (Hardware):** `console.cs:12969-12994` (setCWSideToneVolume)
+**Existing Parameters Used by CMASIO (via callbacks):**
+- **CW Sidetone Enable:** `console.cs:14987` (`cw_sidetone` bool)
+- **CW Pitch (Frequency):** `console.cs:18099` (`cw_pitch` int, 200-1200 Hz)
+- **QSK Sidetone Volume:** `console.cs:12913` (`qsk_sidetone_volume` int, 0-100)
+- **TX AF Level:** `console.cs` (`TXAF` property, used for Semi Break-In volume)
+
+**Related Functionality:**
+- **CW Pitch Property:** `console.cs:18103-18119` (CWPitch property getter/setter)
+- **CW Sidetone (Hardware):** `console.cs:12969-12994` (setCWSideToneVolume - network sidetone)
 - **Break-In Delay:** `console.cs:18419-18429` (BreakInDelay property)
+- **Break-In Mode:** `console.cs` (CurrentBreakInMode property - QSK/Semi/Manual)
 - **ASIO Callback:** `cmasio.c:122-176` (CallbackASIO function)
 
 ---
@@ -853,6 +948,7 @@ Benefits:
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2025-11-18 | Analysis | Initial PRD creation |
+| 1.1 | 2025-11-18 | Analysis | **Major revision: Callback-based architecture**<br>- Removed parameter duplication from CMASIO struct<br>- Added C→C# callbacks for parameter access<br>- Removed new GUI controls (uses existing)<br>- Removed database schema changes (uses existing)<br>- Updated AGC recovery time: 100-500ms → **1-2s**<br>- Reduced LOC estimate: 312 → **180** (42% reduction)<br>- Added Section 12: Architecture documentation |
 
 ---
 
