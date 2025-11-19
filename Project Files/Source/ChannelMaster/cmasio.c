@@ -26,6 +26,7 @@ bryanr@bometals.com
 
 #include "cmcomm.h"
 #include "obbuffs.h"
+#include "sidetonegen.h"
 
 cmasio cma = { 0 };
 CMASIO pcma = &cma;
@@ -71,6 +72,9 @@ void create_cmasio()
 		pcma->bufferEmpty = CreateSemaphore(NULL, 1, 1, NULL);
 
 		pcma->overFlowsIn = pcma->overFlowsOut = pcma->underFlowsIn = pcma->underFlowsOut = 0;
+
+		// Initialize sidetone generator module
+		SidetoneGen_Initialize(pcma->blocksize);
 	}
 	cmaError = result;
 	free(asioDriverName);
@@ -85,6 +89,10 @@ void destroy_cmasio()
 	destroy_rmatchV(pcma->rmatchOUT);
 	_aligned_free(pcma->input);
 	_aligned_free(pcma->output);
+
+	// Destroy sidetone generator module
+	SidetoneGen_Destroy();
+
 	unloadASIO();
 
 	char buf[128];
@@ -112,7 +120,20 @@ void asioIN(double* in_tx)
 void asioOUT(int id, int nsamples, double* buff)
 {	// called by the global mixer with a buffer of output data for ASIO
 	if (!pcma->run) return;
-	xrmatchIN(pcma->rmatchOUT, buff);		// audio data from mixer
+
+	// Check if sidetone should be injected
+	if (SidetoneGen_IsActive())
+	{
+		// Generate synthetic sidetone instead of RX audio
+		SidetoneGen_Generate(buff, nsamples, pcm->audio_outrate);
+		xrmatchIN(pcma->rmatchOUT, buff);
+	}
+	else
+	{
+		// Normal RX: pass audio from mixer
+		xrmatchIN(pcma->rmatchOUT, buff);
+	}
+
 	if (pcma->protocol == 0) // W4WMT cmASIO via Protocol 1
 	{
 		memset(buff, 0, nsamples * sizeof(complex));
@@ -244,4 +265,25 @@ void resetCMAevents()
 	pcma->overFlowsIn = pcma->overFlowsOut = pcma->underFlowsIn = pcma->underFlowsOut = 0;
 	resetRMatchDiags(pcma->rmatchIN);
 	resetRMatchDiags(pcma->rmatchOUT);
+}
+
+// ============================================================================
+// CMASIO Sidetone Exports (wrappers for SidetoneGen module)
+// ============================================================================
+
+PORT
+void setCMASIO_TXActive(int tx_active)
+{
+	if (pcm->audioCodecId != ASIO) return;
+	SidetoneGen_SetTXActive(tx_active);
+}
+
+PORT
+void setCMASIO_Callbacks(
+	int (*getEnabled)(void),
+	int (*getFreq)(void),
+	double (*getVolume)(void))
+{
+	if (pcm->audioCodecId != ASIO) return;
+	SidetoneGen_SetCallbacks(getEnabled, getFreq, getVolume);
 }

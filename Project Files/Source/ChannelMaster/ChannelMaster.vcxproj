@@ -214,6 +214,7 @@
     <ClInclude Include="analyzers.h" />
     <ClInclude Include="cmasio.h" />
     <ClInclude Include="cmaster.h" />
+    <ClInclude Include="sidetonegen.h" />
     <ClInclude Include="cmbuffs.h" />
     <ClInclude Include="cmcomm.h" />
     <ClInclude Include="cmsetup.h" />
@@ -243,6 +244,7 @@
     <ClCompile Include="analyzers.c" />
     <ClCompile Include="cmasio.c" />
     <ClCompile Include="cmaster.c" />
+    <ClCompile Include="sidetonegen.c" />
     <ClCompile Include="cmbuffs.c" />
     <ClCompile Include="cmsetup.c" />
     <ClCompile Include="ilv.c" />
