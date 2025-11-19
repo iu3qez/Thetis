@@ -1575,7 +1575,7 @@ namespace Thetis
                 // 1. CWSidetone enabled (setup.cs:chkDSPKeyerSidetone)
                 // 2. Semi Break-In mode active (console.cs:chkQSK CheckState.Checked)
 
-                bool sidetone_on = Console.getConsole().CWSidetone;
+                bool sidetone_on = Console.getConsole().CWSidetones;
                 bool semi_breakin = (Console.getConsole().BreakInEnabledState == CheckState.Checked);
 
                 return (sidetone_on && semi_breakin) ? 1 : 0;
@@ -1614,21 +1614,10 @@ namespace Thetis
         {
             try
             {
-                // Uses existing console.cs:qsk_sidetone_volume (line 12913)
-                // Semi Break-In: use TXAF, QSK: use qsk_sidetone_volume
+                // Uses existing console.cs:TXAF property (line 18931)
+                // TXAF contains the volume for both Semi Break-In and QSK modes
 
-                int volume_percent;
-
-                if (Console.getConsole().BreakInEnabledState == CheckState.Checked)
-                {
-                    // Semi Break-In mode: use TX AF level (0-100)
-                    volume_percent = Console.getConsole().TXAF;
-                }
-                else
-                {
-                    // QSK mode: use QSK sidetone volume (0-100)
-                    volume_percent = Console.getConsole().QSKSidetoneVolume;
-                }
+                int volume_percent = Console.getConsole().TXAF;
 
                 // Convert to 0.0-1.0 range
                 double volume = (double)volume_percent / 100.0;
