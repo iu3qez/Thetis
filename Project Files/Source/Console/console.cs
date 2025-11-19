@@ -30335,10 +30335,7 @@ namespace Thetis
             bool tx = chkMOX.Checked;
 
             // Notify CMASIO of TX state change for sidetone
-            if (CurrentAudioCodec == AudioCodec.ASIO)
-            {
-                CMASIOSidetone.SetTXActive(tx);
-            }
+            CMASIOSidetone.SetTXActive(tx);
 
             //[2.10.1.0]MW0LGE changed
             if (!tx)
