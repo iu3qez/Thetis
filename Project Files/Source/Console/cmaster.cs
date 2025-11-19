@@ -1575,8 +1575,8 @@ namespace Thetis
                 // 1. CWSidetone enabled (setup.cs:chkDSPKeyerSidetone)
                 // 2. Semi Break-In mode active (console.cs:chkQSK CheckState.Checked)
 
-                bool sidetone_on = Console.CurrentConsole.CWSidetone;
-                bool semi_breakin = (Console.CurrentConsole.BreakInEnabledState == CheckState.Checked);
+                bool sidetone_on = Console.getConsole().CWSidetone;
+                bool semi_breakin = (Console.getConsole().BreakInEnabledState == CheckState.Checked);
 
                 return (sidetone_on && semi_breakin) ? 1 : 0;
             }
@@ -1594,7 +1594,7 @@ namespace Thetis
             {
                 // Uses existing console.cs:cw_pitch (line 18099)
                 // Set by setup.cs:udDSPCWPitch (Setup > DSP > Keyer > CW Pitch)
-                int freq = Console.CurrentConsole.CWPitch;
+                int freq = Console.getConsole().CWPitch;
 
                 // Sanity check (200-1200 Hz range)
                 if (freq < 200) freq = 200;
@@ -1619,15 +1619,15 @@ namespace Thetis
 
                 int volume_percent;
 
-                if (Console.CurrentConsole.BreakInEnabledState == CheckState.Checked)
+                if (Console.getConsole().BreakInEnabledState == CheckState.Checked)
                 {
                     // Semi Break-In mode: use TX AF level (0-100)
-                    volume_percent = Console.CurrentConsole.TXAF;
+                    volume_percent = Console.getConsole().TXAF;
                 }
                 else
                 {
                     // QSK mode: use QSK sidetone volume (0-100)
-                    volume_percent = Console.CurrentConsole.QSKSidetoneVolume;
+                    volume_percent = Console.getConsole().QSKSidetoneVolume;
                 }
 
                 // Convert to 0.0-1.0 range
