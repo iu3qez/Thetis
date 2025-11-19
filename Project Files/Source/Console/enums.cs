@@ -1,4 +1,45 @@
-﻿namespace Thetis
+﻿/*  enums.cs
+
+This file is part of a program that implements a Software-Defined Radio.
+
+This code/file can be found on GitHub : https://github.com/ramdor/Thetis
+
+Copyright (C) 2000-2025 Original authors
+Copyright (C) 2020-2025 Richard Samphire MW0LGE
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+The author can be reached by email at
+
+mw0lge@grange-lane.co.uk
+*/
+//
+//============================================================================================//
+// Dual-Licensing Statement (Applies Only to Author's Contributions, Richard Samphire MW0LGE) //
+// ------------------------------------------------------------------------------------------ //
+// For any code originally written by Richard Samphire MW0LGE, or for any modifications       //
+// made by him, the copyright holder for those portions (Richard Samphire) reserves the       //
+// right to use, license, and distribute such code under different terms, including           //
+// closed-source and proprietary licences, in addition to the GNU General Public License      //
+// granted above. Nothing in this statement restricts any rights granted to recipients under  //
+// the GNU GPL. Code contributed by others (not Richard Samphire) remains licensed under      //
+// its original terms and is not affected by this dual-licensing statement in any way.        //
+// Richard Samphire can be reached by email at :  mw0lge@grange-lane.co.uk                    //
+//============================================================================================//
+
+namespace Thetis
 {
     #region Enums
 
@@ -22,7 +63,7 @@
         SIG_GEN,
     }
 
-    public enum ColorSheme
+    public enum ColorScheme
     {
         original = 0,
         enhanced,
@@ -32,6 +73,7 @@
         LinRad,
         LinAuto,
         off,
+        Custom,
     }
 
     public enum MultiMeterDisplayMode
@@ -62,27 +104,10 @@
         DIRECT_X,
     }
 
-    public enum Model
-    {
-        HPSDR = 0,
-        HERMES,
-        ANAN10,
-        ANAN10E,
-        ANAN100,
-        ANAN100B,
-        ANAN100D,
-        ANAN200D,
-        ORIONMKII,
-        ANAN7000D,
-        ANAN8000D,
-        ANAN_G2,        //G8NJJ
-        ANAN_G2_1K,     //G8NJJ
-        ANVELINAPRO3,
-        LAST
-    }
-
     public enum HPSDRModel
     {
+        //IMPORTANT: Please keep the int value order on these enums, ie add new items before LAST,
+        //otherwise 'bad' things might happen
         FIRST = -1,
         HPSDR,
         HERMES,
@@ -98,6 +123,8 @@
         ANAN_G2,        //G8NJJ
         ANAN_G2_1K,     //G8NJJ
         ANVELINAPRO3,
+        HERMESLITE,     //MI0BOT
+        REDPITAYA,      //DH1KLM
         LAST
     }
 
@@ -359,13 +386,15 @@
     public enum HPSDRHW
     {
         Atlas = 0,
-        Hermes = 1,
+        Hermes = 1,         // ANAN-10 ANAN100
         HermesII = 2,       // ANAN-10E ANAN-100B HeremesII
         Angelia = 3,        // ANAN-100D
         Orion = 4,          // ANAN-200D
-        OrionMKII = 5,      // AMAM-7000DLE 7000DLEMkII ANAN-8000DLE OrionMkII Anvelina-Pro3
-        Saturn = 10,         // ANAN-G2: added G8NJJ
-        Unknown = 999,      //MW0LGE
+        OrionMKII = 5,      // AMAM-7000DLE 7000DLEMkII ANAN-8000DLE OrionMkII Anvelina-Pro3 RedPitaya
+        HermesLite = 6,     // MI0BOT
+        Saturn = 10,        // ANAN-G2: added G8NJJ
+        SaturnMKII = 11,    // ANAN-G2: MKII board?
+        Unknown = 999,      // MW0LGE
     }
 
     public enum DSPFilterType
@@ -433,7 +462,8 @@
     {
         OFF = 0,
         SQL = 1,
-        VSQL = 2
+        VSQL = 2,
+        LAST
     }
 
     public enum StatusBarIconGroup

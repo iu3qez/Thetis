@@ -2,7 +2,7 @@
 
 This file is part of a program that implements a Software-Defined Radio.
 
-Copyright (C) 2014, 2022 Warren Pratt, NR0V
+Copyright (C) 2014, 2022, 2023 Warren Pratt, NR0V
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -191,7 +191,6 @@ void calc_speak (SPEAK a)
 		default:
 			bw_parm = 1.0;
 			bw_corr  = 1.0;
-			g_corr = 1.0;
 			A = 2.5;
 			f_min = 50.0;
 			break;

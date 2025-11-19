@@ -2134,9 +2134,16 @@ namespace Thetis
 
                         case EIndicatorActions.eINNR:
                             if (Use_RX1)
-                                State = chkNR.Checked;
+                            {
+                                //State = chkNR.Checked;
+                                State = _nr_selected[0] > 0;
+                            }
+
                             else
-                                State = chkRX2NR.Checked;
+                            {
+                                //State = chkRX2NR.Checked;
+                                State = _nr_selected[1] > 0;
+                            }
                             break;
 
                         case EIndicatorActions.eINSNB:
@@ -3301,15 +3308,17 @@ namespace Thetis
                 case EButtonBarActions.eBBNR:
                     if (UseRX1)
                     {
-                        if (chkNR.CheckState == CheckState.Unchecked) chkNR.CheckState = CheckState.Checked;       // off to NR
-                        else if (chkNR.CheckState == CheckState.Checked) chkNR.CheckState = CheckState.Indeterminate;       // NR to NR2
-                        else chkNR.CheckState = CheckState.Unchecked;
+                        //if (chkNR.CheckState == CheckState.Unchecked) chkNR.CheckState = CheckState.Checked;       // off to NR
+                        //else if (chkNR.CheckState == CheckState.Checked) chkNR.CheckState = CheckState.Indeterminate;       // NR to NR2
+                        //else chkNR.CheckState = CheckState.Unchecked;
+                        incrementNR(1);
                     }
                     else
                     {
-                        if (chkRX2NR.CheckState == CheckState.Unchecked) chkRX2NR.CheckState = CheckState.Checked;       // off to NR
-                        else if (chkRX2NR.CheckState == CheckState.Checked) chkRX2NR.CheckState = CheckState.Indeterminate;       // NR to NR2
-                        else chkRX2NR.CheckState = CheckState.Unchecked;
+                        //if (chkRX2NR.CheckState == CheckState.Unchecked) chkRX2NR.CheckState = CheckState.Checked;       // off to NR
+                        //else if (chkRX2NR.CheckState == CheckState.Checked) chkRX2NR.CheckState = CheckState.Indeterminate;       // NR to NR2
+                        //else chkRX2NR.CheckState = CheckState.Unchecked;
+                        incrementNR(2);
                     }
                     break;
 
@@ -3698,7 +3707,7 @@ namespace Thetis
                     break;
 
                 case EButtonBarActions.eBBCentreDisplay:           // centre the display
-                    btnDisplayPanCenter_Click(null, null);
+                    PanCentre();
                     break;
 
                 case EButtonBarActions.eBBZoomStep:                // step between the zoom step buttons
@@ -4031,11 +4040,13 @@ namespace Thetis
                 case EButtonBarActions.eBBNR:
                     if (UseRX1)
                     {
-                        if (chkNR.Checked) NewString = "RX1 " + chkNR.Text; else NewString = "RX1 NR: off";
+                        //if (chkNR.Checked) NewString = "RX1 " + chkNR.Text; else NewString = "RX1 NR: off";
+                        if (_nr_selected[0] > 0) NewString = "RX1 " + chkNR.Text; else NewString = "RX1 NR: off";
                     }
                     else
                     {
-                        if (chkRX2NR.Checked) NewString = "RX2 " + chkRX2NR.Text; else NewString = "RX2 NR: off";
+                        //if (chkRX2NR.Checked) NewString = "RX2 " + chkRX2NR.Text; else NewString = "RX2 NR: off";
+                        if (_nr_selected[1] > 0) NewString = "RX1 " + chkNR.Text; else NewString = "RX1 NR: off";
                     }
                     break;
 
@@ -4200,7 +4211,8 @@ namespace Thetis
                     break;
 
                 case EButtonBarActions.eBBNR:
-                    if (UseRX1) State = chkNR.Checked; else State = chkRX2NR.Checked;
+                    //if (UseRX1) State = chkNR.Checked; else State = chkRX2NR.Checked;
+                    State = _nr_selected[UseRX1 ? 0 : 1] > 0;
                     break;
 
                 case EButtonBarActions.eBBNB:

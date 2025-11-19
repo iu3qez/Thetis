@@ -25,6 +25,19 @@
 //    Austin, TX 78728
 //    USA
 //=================================================================
+//
+//============================================================================================//
+// Dual-Licensing Statement (Applies Only to Author's Contributions, Richard Samphire MW0LGE) //
+// ------------------------------------------------------------------------------------------ //
+// For any code originally written by Richard Samphire MW0LGE, or for any modifications       //
+// made by him, the copyright holder for those portions (Richard Samphire) reserves the       //
+// right to use, license, and distribute such code under different terms, including           //
+// closed-source and proprietary licences, in addition to the GNU General Public License      //
+// granted above. Nothing in this statement restricts any rights granted to recipients under  //
+// the GNU GPL. Code contributed by others (not Richard Samphire) remains licensed under      //
+// its original terms and is not affected by this dual-licensing statement in any way.        //
+// Richard Samphire can be reached by email at :  mw0lge@grange-lane.co.uk                    //
+//============================================================================================//
 
 using System;
 using System.Drawing;
@@ -90,10 +103,11 @@ namespace Thetis
         private MenuStrip menuStripOptions;
         private ToolStripMenuItem optionsToolStripMenuItem;
         private IContainer components;
+        private bool _restoring_controls;
 
-		#region Constructor and Destructor
+        #region Constructor and Destructor
 
-		public WaveControl(Console c)
+        public WaveControl(Console c)
 		{            
 			InitializeComponent();
             console = c;
@@ -110,7 +124,24 @@ namespace Thetis
 			currently_playing = -1;
             waveOptionsForm = new WaveOptions();
 			this.ActiveControl = btnAdd;
+
+            //[2.10.9.3]MW0LGE
+            // this, plus the checked false, is needed incase any of these checkboxes are checked
+            // when the form is closed, because the closing event will save their state as checked
+            _restoring_controls = true;
 			Common.RestoreForm(this, "WaveOptions", false);
+
+            checkBoxPlay.Checked = false;
+            checkBoxPause.Checked = false;
+            checkBoxRecord.Checked = false;
+            createBoxTS.Checked = false;
+            TXIDBoxTS.Checked = false;
+            chkQuickRec.Checked = false;
+            chkQuickPlay.Checked = false;
+            checkBoxLoop.Checked = false;
+            checkBoxRandom.Checked = false;
+
+            _restoring_controls = false;
 		}
 
 		protected override void Dispose( bool disposing )
@@ -603,6 +634,22 @@ namespace Thetis
 
 		#region Misc Routines
 
+        //
+        public bool Recording
+        {
+            get
+            {
+                return checkBoxRecord.Checked;
+            }
+            set
+            {
+                if (value == checkBoxRecord.Checked) return;
+
+                checkBoxRecord.Checked = value;
+            }
+        }
+        //
+
 
         // ke9ns add pass string from console play button right click
         private static string QPFile = null;
@@ -658,6 +705,23 @@ namespace Thetis
             }
         } // RECPLAY3
 
+        private void removeFromList(int index)
+        {
+            //[2.10.3.9]MW0LGE to fix some nasty issue
+            try
+            {
+                file_list.RemoveAt(index);
+                if (currently_playing == index)
+                {
+                    currently_playing = -1;
+                }
+                else if (index < currently_playing)
+                {
+                    currently_playing--; // one has been removed before the current playing
+                }
+            }
+            catch { }
+        }
         private bool OpenWaveFile(string filename, int id)
 		{
 			RIFFChunk riff = null;
@@ -670,8 +734,9 @@ namespace Thetis
 					"Bad Filename",
 					MessageBoxButtons.OK,
 					MessageBoxIcon.Error);
-				if(currently_playing>=0) file_list.RemoveAt(currently_playing); // MW0LGE fix -1 error
-				return false;
+				//if(currently_playing>=0) file_list.RemoveAt(currently_playing); // MW0LGE fix -1 error
+                removeFromList(currently_playing);
+                return false;
 			}
 
 			BinaryReader reader = null;
@@ -694,8 +759,9 @@ namespace Thetis
 					"Wrong File Format",
 					MessageBoxButtons.OK,
 					MessageBoxIcon.Error);
-				file_list.RemoveAt(currently_playing);
-				return false;
+                //if (currently_playing >= 0) file_list.RemoveAt(currently_playing); //[2.10.3.9]MW0LGE fix -1 error
+                removeFromList(currently_playing);
+                return false;
 			}
 
             bool ok = true;
@@ -724,7 +790,8 @@ namespace Thetis
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
 
-                try { file_list.RemoveAt(currently_playing); } catch { }
+                //try { file_list.RemoveAt(currently_playing); } catch { }
+                removeFromList(currently_playing);
                 return false;
             }
 
@@ -735,8 +802,9 @@ namespace Thetis
 					"Wrong File Format",
 					MessageBoxButtons.OK,
 					MessageBoxIcon.Error);
-				file_list.RemoveAt(currently_playing);
-				return false;
+                //file_list.RemoveAt(currently_playing);
+                removeFromList(currently_playing);
+                return false;
 			}
 
 			if(riff.riff_type != 0x45564157)
@@ -746,8 +814,9 @@ namespace Thetis
 					"Wrong file format",
 					MessageBoxButtons.OK,
 					MessageBoxIcon.Error);
-				file_list.RemoveAt(currently_playing);
-				return false;
+                //file_list.RemoveAt(currently_playing);
+                removeFromList(currently_playing);
+                return false;
 			}
 
           /*  if (!CheckSampleRate(fmt.sample_rate) ||
@@ -769,8 +838,9 @@ namespace Thetis
 					"Wrong Number of Channels",
 					MessageBoxButtons.OK,
 					MessageBoxIcon.Error);
-				file_list.RemoveAt(currently_playing);
-				return false;
+                //file_list.RemoveAt(currently_playing);
+                removeFromList(currently_playing);
+                return false;
 			}
 
             /*if (!rx2)
@@ -903,6 +973,8 @@ namespace Thetis
         private bool temp_vacbypass_play=false;
 		private void checkBoxPlay_CheckedChanged(object sender, System.EventArgs e)
 		{
+            if (_restoring_controls) return;
+
 			if(checkBoxPlay.Checked)
 			{
 				string filename = (string)file_list[currently_playing];
@@ -948,7 +1020,7 @@ namespace Thetis
 
                 if (console.BypassVACWhenPlayingRecording)
                     Audio.VACBypass = temp_vacbypass_play;  //MW0LGE
-			}
+            }
             Audio.WavePlayback = checkBoxPlay.Checked;
 			console.WavePlayback = checkBoxPlay.Checked;			
 		}
@@ -957,9 +1029,12 @@ namespace Thetis
         public static string scheduleName1; // ke9ns add for saving file name of recording
         public static string scheduleName2; // ke9ns add for saving file name of recording
 
+        private bool _old_record_state = false;
         private void checkBoxRecord_CheckedChanged(object sender, System.EventArgs e)
 		{
-			if(checkBoxRecord.Checked)
+            if (_restoring_controls) return;
+            
+            if (checkBoxRecord.Checked)
 			{
 				checkBoxRecord.BackColor = console.ButtonSelectedColor;
 				string temp = console.RX1DSPMode.ToString()+" ";
@@ -978,7 +1053,18 @@ namespace Thetis
                 string file_name = temp+".wav";
                 scheduleName = file_name; // ke9ns add
 
-               // string file_name2 = file_name+"-rx2";				
+                if (!Common.CanCreateFile(file_name))
+                {
+                    MessageBox.Show($"Unable to open the file : \n\n{file_name}\n\nThis may be due to controlled folder access or some other reason.",
+                    "Wave Record",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error, MessageBoxDefaultButton.Button1, Common.MB_TOPMOST);
+
+                    checkBoxRecord.Checked = false;
+                    return;
+                }
+
+                // string file_name2 = file_name+"-rx2";				
                 WaveThing.wave_file_writer[0] = new WaveFileWriter(0, 2, waveOptionsForm.SampleRate, file_name);
 
                 if (console.RX2Enabled)
@@ -1009,12 +1095,21 @@ namespace Thetis
                 }
 
                 if (WaveThing.wave_file_writer[0] != null) //[2.10.3.5]MW0LGE
+                {
+                    Thread.Sleep(100);
                     WaveThing.wave_file_writer[0].Stop();
+                }
 
 				checkBoxRecord.BackColor = SystemColors.Control;
 				//MessageBox.Show("The file has been written to the following location:\n"+file_name);
 			}
-		}
+
+            if (_old_record_state != checkBoxRecord.Checked)
+            {
+                _old_record_state = checkBoxRecord.Checked;
+                if (console != null) console.WaveRecordChangedHandlers?.Invoke(1, _old_record_state, checkBoxRecord.Checked); // rx1 only atm
+            }
+        }
 
 		private void btnAdd_Click(object sender, System.EventArgs e)
 		{
@@ -1055,13 +1150,18 @@ namespace Thetis
 			selections.Sort();
 
             Application.DoEvents();
-			for(int i=selections.Count-1; i>=0; i--)
-				file_list.RemoveAt((int)selections[i]);
+            for (int i = selections.Count - 1; i >= 0; i--)
+            {
+                //file_list.RemoveAt((int)selections[i]);
+                removeFromList((int)selections[i]);
+            }
 			UpdatePlaylist();
 		}
 
 		private void checkBoxLoop_CheckedChanged(object sender, System.EventArgs e)
 		{
+            if (_restoring_controls) return;
+
 			if(checkBoxLoop.Checked)
 				checkBoxLoop.BackColor = console.ButtonSelectedColor;
 			else
@@ -1070,12 +1170,14 @@ namespace Thetis
 
 		private void btnStop_Click(object sender, System.EventArgs e)
 		{
-			checkBoxPlay.Checked = false;
+            checkBoxPlay.Checked = false;
 		}
 
 		private void checkBoxRandom_CheckedChanged(object sender, System.EventArgs e)
 		{
-			if(checkBoxRandom.Checked)
+            if (_restoring_controls) return;
+            
+            if (checkBoxRandom.Checked)
 				checkBoxRandom.BackColor = console.ButtonSelectedColor;
 			else
 				checkBoxRandom.BackColor = SystemColors.Control;
@@ -1098,7 +1200,7 @@ namespace Thetis
 
 		private void btnPrevious_Click(object sender, System.EventArgs e)
 		{
-			if(checkBoxPlay.Checked)
+            if (checkBoxPlay.Checked)
 			{
 				checkBoxPlay.Checked = false;
 				CurrentlyPlaying--;
@@ -1138,7 +1240,9 @@ namespace Thetis
 
 		private void checkBoxPause_CheckedChanged(object sender, System.EventArgs e)
 		{
-			if(checkBoxPlay.Checked)
+            if (_restoring_controls) return;
+            
+            if (checkBoxPlay.Checked)
                 Audio.WavePlayback = !checkBoxPause.Checked;
 
 			if(checkBoxPause.Checked)
@@ -1213,8 +1317,11 @@ namespace Thetis
 
         public static int QAC = 0; // ke9ns add
  
-		private void chkQuickPlay_CheckedChanged(object sender, System.EventArgs e)
+        private bool _old_quick_play_state = false;
+        private void chkQuickPlay_CheckedChanged(object sender, System.EventArgs e)
 		{
+            if (_restoring_controls) return;
+
             string file_name; // = console.AppDataPath + "SDRQuickAudio.wav";
 
 //             if (chkQuickAudioFolder.Checked == true) // ke9ns add to allow subfolder with different names to play
@@ -1236,8 +1343,8 @@ namespace Thetis
  //           }
 
 			if(chkQuickPlay.Checked)
-			{				
-				temp_txeq = console.TXEQ;
+			{               
+                temp_txeq = console.TXEQ;
 				console.TXEQ = false;               // set TX Eq temporarily to OFF
 
 				temp_cpdr = console.CPDR;
@@ -1301,30 +1408,56 @@ namespace Thetis
                 }
 			}
             Audio.WavePlayback = chkQuickPlay.Checked;
-			console.WavePlayback = chkQuickPlay.Checked;			
-		}
+			console.WavePlayback = chkQuickPlay.Checked;
 
-      //  public static string quickmp3SR; // ke9ns add
+            console.UpdatedFromWaveForm = true; // let console know change came from here
+            console.QuickPlay = chkQuickPlay.Checked;
+            console.UpdatedFromWaveForm = false;
 
-       // public static string quickmp3; // ke9ns add
+            if (_old_quick_play_state != chkQuickPlay.Checked)
+            {
+                _old_quick_play_state = chkQuickPlay.Checked;
+                if (console != null) console.QuickPlayChangedHandlers?.Invoke(1, _old_quick_play_state, chkQuickPlay.Checked); // rx1 only atm
+            }
+        }
+
+        //  public static string quickmp3SR; // ke9ns add
+
+        // public static string quickmp3; // ke9ns add
         //============================================================================================
+        private bool _old_quick_record_state = false;
         private void chkQuickRec_CheckedChanged(object sender, System.EventArgs e)
         {
+            if (_restoring_controls) return;
+
             if (chkQuickRec.Checked)
             {
-//                 temp_record = Audio.RecordRXPreProcessed;
-//                 quickmp3SR = waveOptionsForm.comboSampleRate.Text;
-// 
-//                 if (chkBoxMP3.Checked == true)
-//                     waveOptionsForm.comboSampleRate.Text = "48000"; // reduce file size
+                string file_name;
+                file_name = console.AppDataPath + "SDRQuickAudio.wav";
+                if (!Common.CanCreateFile(file_name))
+                {
+                    MessageBox.Show($"Unable to open the file : \n\n{file_name}\n\nThis may be due to controlled folder access or some other reason.",
+                    "Wave Record",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error, MessageBoxDefaultButton.Button1, Common.MB_TOPMOST);
 
-               // Audio.RecordRXPreProcessed = false;                            //ke9ns add  set this FALSE temporarily
+                    chkQuickRec.Checked = false;
+                    return;
+                }
+
+                //                 temp_record = Audio.RecordRXPreProcessed;
+                //                 quickmp3SR = waveOptionsForm.comboSampleRate.Text;
+                // 
+                //                 if (chkBoxMP3.Checked == true)
+                //                     waveOptionsForm.comboSampleRate.Text = "48000"; // reduce file size
+
+                // Audio.RecordRXPreProcessed = false;                            //ke9ns add  set this FALSE temporarily
 
                 chkQuickRec.BackColor = console.ButtonSelectedColor;
 
                 chkQuickPlay.Enabled = true;
 
-                string file_name;
+                //string file_name;
 
 //                 if (chkQuickAudioFolder.Checked == true)
 //                 {
@@ -1342,7 +1475,7 @@ namespace Thetis
 //                 else
 //                 {
 // 
-                     file_name = console.AppDataPath + "SDRQuickAudio.wav";
+                     //file_name = console.AppDataPath + "SDRQuickAudio.wav";
 // 
 //                     quickmp3 = console.AppDataPath + "SDRQuickAudio.mp3"; // ke9ns add mp3
 // 
@@ -1393,6 +1526,16 @@ namespace Thetis
 
             } //   if (!chkQuickRec.Checked)
 
+            console.UpdatedFromWaveForm = true; // let console know change came from here
+            console.QuickRec = chkQuickRec.Checked;
+            console.UpdatedFromWaveForm = false;
+
+            if (_old_quick_record_state != chkQuickRec.Checked)
+            {
+                _old_quick_record_state = chkQuickRec.Checked;
+                if(console != null) console.QuickRecordChangedHandlers?.Invoke(1, _old_quick_record_state, chkQuickRec.Checked); // rx1 only atm
+            }
+
         } //  chkQuickRec_CheckedChanged
 
  
@@ -1433,7 +1576,7 @@ namespace Thetis
 
         private void TXIDBoxTS_CheckedChanged(object sender, EventArgs e) // ke9ns ADD TX waterfall ID
         {
-
+            if (_restoring_controls) return;
 
             string file_name = console.AppDataPath + "ke9ns.wav"; // TEXT to waterfall image only
 
@@ -1548,6 +1691,8 @@ namespace Thetis
         public DSPMode BandL = 0;
         private void createBoxTS_CheckedChanged(object sender, EventArgs e)
         {
+            if (_restoring_controls) return;
+
             if (createBoxTS.Checked)
             {
                 //  Debug.WriteLine("check create");
@@ -2391,7 +2536,7 @@ namespace Thetis
 
         // gets called when a record button is clicked
 		public WaveFileWriter(int wfw_id, short chan, int samp_rate, string file)
-		{
+		{            
             id = wfw_id;
             // get rates and sizes for recording the receiver and recording the transmitter
             // pre/post choices must have been selected in advance of clicking record

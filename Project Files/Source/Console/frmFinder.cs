@@ -4,7 +4,7 @@ This file is part of a program that implements a Software-Defined Radio.
 
 This code/file can be found on GitHub : https://github.com/ramdor/Thetis
 
-Copyright (C) 2020-2024 Richard Samphire MW0LGE
+Copyright (C) 2020-2025 Richard Samphire MW0LGE
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -24,6 +24,20 @@ The author can be reached by email at
 
 mw0lge@grange-lane.co.uk
 */
+//
+//============================================================================================//
+// Dual-Licensing Statement (Applies Only to Author's Contributions, Richard Samphire MW0LGE) //
+// ------------------------------------------------------------------------------------------ //
+// For any code originally written by Richard Samphire MW0LGE, or for any modifications       //
+// made by him, the copyright holder for those portions (Richard Samphire) reserves the       //
+// right to use, license, and distribute such code under different terms, including           //
+// closed-source and proprietary licences, in addition to the GNU General Public License      //
+// granted above. Nothing in this statement restricts any rights granted to recipients under  //
+// the GNU GPL. Code contributed by others (not Richard Samphire) remains licensed under      //
+// its original terms and is not affected by this dual-licensing statement in any way.        //
+// Richard Samphire can be reached by email at :  mw0lge@grange-lane.co.uk                    //
+//============================================================================================//
+
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -34,6 +48,7 @@ using System.IO;
 using System.Xml;
 using System.Drawing.Drawing2D;
 using System.Diagnostics;
+using System.Xml.Linq;
 
 namespace Thetis
 {
@@ -58,7 +73,8 @@ namespace Thetis
         private StringFormat _stringFormat;
         Dictionary<string, string> _xmlData = new Dictionary<string, string>();
         private bool _fullName;
-        private bool _highlightReusults;
+        private bool _highlightResults;
+        private bool _keywords;
 
         public frmFinder()
         {
@@ -75,8 +91,9 @@ namespace Thetis
             InitializeComponent();
 
             // match inital form state
-            _highlightReusults = chkHighlight.Checked;
+            _highlightResults = chkHighlight.Checked;
             _fullDetails = chkFullDetails.Checked;
+            _keywords = chkKeywords.Checked;
         }
         public void GatherSearchData(Form frm, ToolTip tt)
         {
@@ -88,7 +105,7 @@ namespace Thetis
             })
             {
                 Name = "Finder Worker Thread for " + frm.Name,
-                Priority = ThreadPriority.Highest,
+                Priority = ThreadPriority.BelowNormal,
                 IsBackground = true,
             };
 
@@ -99,6 +116,98 @@ namespace Thetis
 
             worker.Start();
         }
+        public void GatherCATStructData(string file_path)
+        {
+            string name = "CATSTRUCT_" + file_path;
+            if (_workerThreads.ContainsKey(name)) return;
+
+            Thread worker = new Thread(() =>
+            {
+                gatherCATStructSearchDataThread(file_path);
+            })
+            {
+                Name = "Finder Worker Thread for " + name,
+                Priority = ThreadPriority.Highest,
+                IsBackground = true,
+            };
+
+            lock (_objWTLocker)
+            {
+                _workerThreads.Add(name, worker);
+            }
+
+            worker.Start();
+        }
+
+        //
+        private class CatStructEntry
+        {
+            public string Code { get; set; }
+            public string Description { get; set; }
+        }
+        private void gatherCATStructSearchDataThread(string file_path)
+        {          
+            try
+            {
+                XDocument document = XDocument.Load(file_path);
+                XElement root = document.Element("catstructs");
+                List<CatStructEntry> result = new List<CatStructEntry>();
+
+                foreach (XElement element in root.Elements("catstruct"))
+                {
+                    XAttribute codeAttr = element.Attribute("code");
+                    XElement descElem = element.Element("desc");
+                    XElement activeElem = element.Element("active");
+                    XElement setElem = element.Element("nsetparms");
+                    XElement getElem = element.Element("ngetparms");
+                    XElement ansElem = element.Element("nansparms");
+
+                    if (codeAttr != null && descElem != null)
+                    {
+                        string code = codeAttr.Value;
+                        string description = descElem.Value;
+
+                        int set = -1;
+                        int.TryParse(setElem.Value, out set);
+                        int get = -1;
+                        int.TryParse(getElem.Value, out get);
+                        int ans = -1;
+                        int.TryParse(ansElem.Value, out ans);
+
+                        string sVars = "";
+                        if (set > 0) sVars += $" set[{set}]";
+                        if (get > 0) sVars += $" get[{get}]";
+                        if (ans > 0) sVars += $" ans[{ans}]";
+                        sVars = sVars.Trim();
+
+                        SearchData sd = new SearchData()
+                        {
+                            Control = null,
+                            Name = "CATcommand",
+                            ShortName = "",
+                            Text = code + " : " + description + "   " + sVars,
+                            ToolTip = code + " : " + description,
+                            XMLReplacement = "",
+                            FullName = code + " : " + description
+                        };
+
+                        lock (_objLocker)
+                        {
+                            _searchData.Add(Guid.NewGuid().ToString(), sd);
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            //done
+            string name = "CATSTRUCT_" + file_path;
+            lock (_objWTLocker)
+            {
+                _workerThreads.Remove(name);
+            }
+        }
+        //
         private void gatherSearchDataThread(Control frm, ToolTip tt)
         {
             getControlList(frm, tt);
@@ -108,76 +217,101 @@ namespace Thetis
                 _workerThreads.Remove(frm.Name);
             }
         }
-        private void getControlList(Control c, ToolTip tt)
+        //
+        private static readonly HashSet<Type> target_types = new HashSet<Type>
         {
-            if (c.Controls.Count > 0)
+            typeof(CheckBoxTS), typeof(CheckBox),
+            typeof(ComboBoxTS), typeof(ComboBox),
+            typeof(NumericUpDownTS), typeof(NumericUpDown),
+            typeof(RadioButtonTS), typeof(RadioButton),
+            typeof(TextBoxTS), typeof(TextBox),
+            typeof(TrackBarTS), typeof(TrackBar),
+            typeof(ColorButton),
+            typeof(ucLGPicker),
+            typeof(RichTextBox),
+            typeof(LabelTS), typeof(Label),
+            typeof(ButtonTS)
+        };
+
+        private static string stripPrefix(string name)
+        {
+            string[] prefixes = new string[] { "clrbtn", "combo", "label", "text", "nud", "lbl", "chk", "rad", "txt", "tb", "ud", "btn" };
+            for (int i = 0; i < prefixes.Length; i++)
             {
-                foreach (Control c2 in c.Controls)
-                    getControlList(c2, tt);
+                string p = prefixes[i];
+                if (name.StartsWith(p, StringComparison.OrdinalIgnoreCase)) return name.Substring(p.Length);
+            }
+            return name;
+        }
+
+        private void getControlList(Control root, ToolTip tt)
+        {
+            HashSet<string> existing_keys;
+            lock (_objLocker)
+            {
+                existing_keys = new HashSet<string>(_searchData.Keys);
             }
 
-            if (c.GetType() == typeof(CheckBoxTS) || c.GetType() == typeof(CheckBox) ||
-                c.GetType() == typeof(ComboBoxTS) || c.GetType() == typeof(ComboBox) ||
-                c.GetType() == typeof(NumericUpDownTS) || c.GetType() == typeof(NumericUpDown) ||
-                c.GetType() == typeof(RadioButtonTS) || c.GetType() == typeof(RadioButton) ||
-                c.GetType() == typeof(TextBoxTS) || c.GetType() == typeof(TextBox) ||
-                c.GetType() == typeof(TrackBarTS) || c.GetType() == typeof(TrackBar) ||
-                c.GetType() == typeof(ColorButton) ||
-                c.GetType() == typeof(ucLGPicker) ||
-                c.GetType() == typeof(RichTextBox) ||
-                c.GetType() == typeof(LabelTS) || c.GetType() == typeof(Label) ||
-                c.GetType() == typeof(ButtonTS)// ||
-                //c.GetType() == typeof(TabControl) ||
-                //c.GetType() == typeof(TabPage)
-                )
-            {
-                string sKey = c.GetFullName();
+            List<SearchData> additions = new List<SearchData>();
+            Stack<Control> stack = new Stack<Control>();
+            stack.Push(root);
 
-                bool bAdd = false;
-                lock (_objLocker)
+            while (stack.Count > 0)
+            {
+                Control c = stack.Pop();
+
+                for (int i = 0; i < c.Controls.Count; i++)
                 {
-                   bAdd = !_searchData.ContainsKey(sKey);
+                    stack.Push(c.Controls[i]);
                 }
 
-                if (bAdd)
-                {                    
-                    string toolTip = "";
-                    if (tt != null)
-                        toolTip = tt.GetToolTip(c).Replace("\n", " ");
+                if (!target_types.Contains(c.GetType())) continue;
 
-                    // pull off some junk from control names
-                    string sShortName = c.Name;
-                    if (sShortName.ToLower().StartsWith("lbl")) sShortName = sShortName.Substring(3);
-                    else if (sShortName.ToLower().StartsWith("chk")) sShortName = sShortName.Substring(3);
-                    else if (sShortName.ToLower().StartsWith("rad")) sShortName = sShortName.Substring(3);
-                    else if (sShortName.ToLower().StartsWith("nud")) sShortName = sShortName.Substring(3);
-                    else if (sShortName.ToLower().StartsWith("ud")) sShortName = sShortName.Substring(2);
-                    else if (sShortName.ToLower().StartsWith("txt")) sShortName = sShortName.Substring(3);
-                    else if (sShortName.ToLower().StartsWith("combo")) sShortName = sShortName.Substring(5);
-                    else if (sShortName.ToLower().StartsWith("tb")) sShortName = sShortName.Substring(2);
-                    else if (sShortName.ToLower().StartsWith("text")) sShortName = sShortName.Substring(4);
-                    else if (sShortName.ToLower().StartsWith("btn")) sShortName = sShortName.Substring(3);
-                    else if (sShortName.ToLower().StartsWith("clrbtn")) sShortName = sShortName.Substring(6);
-                    else if (sShortName.ToLower().StartsWith("text")) sShortName = sShortName.Substring(4);
-                    else if (sShortName.ToLower().StartsWith("label")) sShortName = sShortName.Substring(4);
+                string sKey = c.GetFullName();
+                if (existing_keys.Contains(sKey)) continue;
 
-                    SearchData sd = new SearchData()
-                    {
-                        Control = c,
-                        Name = c.Name,
-                        ShortName = sShortName,
-                        Text = c.Text.Replace("\n", " "),
-                        ToolTip = toolTip,
-                        XMLReplacement = _xmlData.ContainsKey(sKey) ? _xmlData[sKey] : "",
-                        FullName = sKey
-                    };
-                    lock (_objLocker)
-                    {
-                        _searchData.Add(sKey, sd);
-                    }
+                string toolTip = "";
+                if (tt != null)
+                {
+                    string t = tt.GetToolTip(c);
+                    if (!string.IsNullOrEmpty(t)) toolTip = t.Replace("\n", " ");
+                }
+
+                string sShortName = stripPrefix(c.Name);
+
+                string text = c.Text;
+                if (!string.IsNullOrEmpty(text) && text.IndexOf('\n') >= 0) text = text.Replace("\n", " ");
+
+                string xml = "";
+                if (_xmlData.ContainsKey(sKey)) xml = _xmlData[sKey];
+
+                SearchData sd = new SearchData()
+                {
+                    Control = c,
+                    Name = c.Name,
+                    ShortName = sShortName,
+                    Text = string.IsNullOrEmpty(text) ? "" : text,
+                    ToolTip = toolTip,
+                    XMLReplacement = xml,
+                    FullName = sKey
+                };
+
+                additions.Add(sd);
+                existing_keys.Add(sKey);
+            }
+
+            if (additions.Count == 0) return;
+
+            lock (_objLocker)
+            {
+                for (int i = 0; i < additions.Count; i++)
+                {
+                    SearchData sd = additions[i];
+                    if (!_searchData.ContainsKey(sd.FullName)) _searchData.Add(sd.FullName, sd);
                 }
             }
         }
+        //
         private bool _ignoreUpdateToList = false;
         private void txtSearch_TextChanged(object sender, EventArgs e)
         {
@@ -190,16 +324,38 @@ namespace Thetis
 
             lock (_objLocker)
             {
-                string sSearch = txtSearch.Text.ToLower();
-                Dictionary<string, SearchData> filteredDictionary = _searchData
-                    .Where(kv => 
-                    kv.Value.Name.Contains(sSearch, StringComparison.OrdinalIgnoreCase) ||
-                    kv.Value.Text.Contains(sSearch, StringComparison.OrdinalIgnoreCase) ||
-                    kv.Value.ToolTip.Contains(sSearch, StringComparison.OrdinalIgnoreCase) ||
-                    kv.Value.XMLReplacement.Contains(sSearch, StringComparison.OrdinalIgnoreCase)
-                    ).ToDictionary(kv => kv.Key, kv => kv.Value);
+                List<SearchData> searchDataList;
+                if (!_keywords)
+                {
+                    string sSearch = txtSearch.Text.ToLower();
+                    Dictionary<string, SearchData> filteredDictionary = _searchData
+                        .Where(kv =>
+                        kv.Value.Name.Contains(sSearch, StringComparison.OrdinalIgnoreCase) ||
+                        kv.Value.Text.Contains(sSearch, StringComparison.OrdinalIgnoreCase) ||
+                        kv.Value.ToolTip.Contains(sSearch, StringComparison.OrdinalIgnoreCase) ||
+                        kv.Value.XMLReplacement.Contains(sSearch, StringComparison.OrdinalIgnoreCase)
+                        ).ToDictionary(kv => kv.Key, kv => kv.Value);
 
-                List<SearchData> searchDataList = filteredDictionary.Values.ToList();
+                    searchDataList = filteredDictionary.Values.ToList();
+                }
+                else
+                {
+                    string[] search = txtSearch.Text
+                        .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(s => s.ToLower())
+                        .ToArray();
+
+                    Dictionary<string, SearchData> filteredDictionary = _searchData
+                        .Where(kv => search.All(term =>
+                            kv.Value.Name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            kv.Value.Text.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            kv.Value.ToolTip.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                            kv.Value.XMLReplacement.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0
+                        ))
+                        .ToDictionary(kv => kv.Key, kv => kv.Value);
+
+                    searchDataList = filteredDictionary.Values.ToList();
+                }
 
                 _ignoreUpdateToList = true;
                 lstResults.DataSource = null;
@@ -215,7 +371,7 @@ namespace Thetis
         private SearchData _oldSelectedSearchResult = null;
         private void lstResults_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (_oldSelectedSearchResult != null)
+            if (_oldSelectedSearchResult != null && _oldSelectedSearchResult.Control != null)
             {
                 //clear old one
                 Common.HightlightControl(_oldSelectedSearchResult.Control, false, true);
@@ -225,7 +381,7 @@ namespace Thetis
             if (lstResults.SelectedItems.Count == 0 || _ignoreUpdateToList) return;
 
             SearchData sd = lstResults.SelectedItem as SearchData;
-            if (sd != null)
+            if (sd != null && sd.Control != null)
             {
                 // take me to your leader
                 showControl(sd.Control);
@@ -298,10 +454,6 @@ namespace Thetis
                 {
                     sText = sd.ToolTip;
                 }
-                //else if (!string.IsNullOrEmpty(sd.Text))
-                //{
-                //    sText = sd.Text;
-                //}
                 else
                 {
                     string sTextAddition = "";
@@ -312,25 +464,31 @@ namespace Thetis
                 highlight(txtSearch.Text.ToLower(), sText, listBox, e.Bounds.X, e.Bounds.Y, g);
                 g.DrawString(sText, listBox.Font, new SolidBrush(textColor), e.Bounds.X, yPos, _stringFormat);
             }
-
-            //g.DrawRectangle(Pens.Gray, e.Bounds.X, e.Bounds.Y, e.Bounds.Width - 1, e.Bounds.Height - 1);
         }
         private void highlight(string sSearchText, string sLineText, ListBox listBox, int xPos, int yPos, Graphics g)
         {
-            if (!_highlightReusults) return;
+            if (!_highlightResults) return;
 
-            List<Tuple<int, int>> lst = findSubstringOccurrences(sLineText.ToLower(), txtSearch.Text.ToLower());
-            foreach (Tuple<int, int> t in lst)
+            string[] terms = _keywords
+                ? sSearchText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                : new string[] { sSearchText };
+
+            foreach (string term in terms)
             {
-                float start = g.MeasureString(sLineText.Substring(0, t.Item1), listBox.Font, int.MaxValue, _stringFormat).Width;
-                float width = g.MeasureString(sLineText.Substring(t.Item1, txtSearch.Text.Length), listBox.Font, int.MaxValue, _stringFormat).Width;
-                Rectangle newRect = new Rectangle(xPos + (int)start, yPos, (int)(width), 20);
-                CompositingMode oldMode = g.CompositingMode;
-                g.CompositingMode = CompositingMode.SourceOver;
-                g.FillRectangle(new SolidBrush(Color.FromArgb(102,Color.Yellow)), newRect);
-                g.CompositingMode = oldMode;
+                foreach (Tuple<int, int> t in findSubstringOccurrences(sLineText.ToLower(), term.ToLower()))
+                {
+                    float start = g.MeasureString(sLineText.Substring(0, t.Item1), listBox.Font, int.MaxValue, _stringFormat).Width;
+                    float width = g.MeasureString(sLineText.Substring(t.Item1, term.Length), listBox.Font, int.MaxValue, _stringFormat).Width;
+                    Rectangle newRect = new Rectangle(xPos + (int)start, yPos, (int)width, 20);
+                    CompositingMode oldMode = g.CompositingMode;
+                    g.CompositingMode = CompositingMode.SourceOver;
+                    using (SolidBrush brush = new SolidBrush(Color.FromArgb(102, Color.Yellow)))
+                        g.FillRectangle(brush, newRect);
+                    g.CompositingMode = oldMode;
+                }
             }
         }
+
         private List<Tuple<int, int>> findSubstringOccurrences(string inputString, string searchString)
         {
             List<Tuple<int, int>> occurrences = new List<Tuple<int, int>>();
@@ -412,7 +570,7 @@ namespace Thetis
             if(!f.Visible)
                 f.Show();
 
-            f.BringToFront();           
+            f.BringToFront();
 
             selectRequiredTabs(f, c);
 
@@ -421,20 +579,74 @@ namespace Thetis
             lstResults.Focus();
             this.ResumeLayout();
         }
-
         private void selectRequiredTabs(Control parentControl, Control targetControl)
         {
-            Control currentControl = targetControl;
-            while (currentControl != parentControl)
+            if (parentControl == null)
             {
-                currentControl = currentControl.Parent;
-                if (currentControl is TabPage tabPage)
+                return;
+            }
+            if (targetControl == null)
+            {
+                return;
+            }
+
+            List<TabPage> tab_pages = new List<TabPage>();
+            HashSet<TabPage> seen = new HashSet<TabPage>();
+            Control current = targetControl;
+
+            while (current != null && current != parentControl)
+            {
+                TabPage tab_page = current as TabPage;
+                if (tab_page != null)
                 {
-                    if (tabPage.Parent is TabControl tabControl)
+                    if (!seen.Contains(tab_page))
                     {
-                        tabControl.SelectedTab = tabPage;
+                        tab_pages.Add(tab_page);
+                        seen.Add(tab_page);
                     }
                 }
+                current = current.Parent;
+            }
+
+            if (current != parentControl)
+            {
+                return;
+            }
+
+            for (int i = tab_pages.Count - 1; i >= 0; i--)
+            {
+                TabPage tab_page = tab_pages[i];
+                TabControl tab_control = tab_page.Parent as TabControl;
+                if (tab_control != null && tab_control.TabPages.Contains(tab_page))
+                {
+                    tab_control.SelectedTab = tab_page;
+                }
+            }
+
+            parentControl.PerformLayout(); // forces any pending layout to complete, needed as we have been chaning tabs
+
+            List<ScrollableControl> scrollers = new List<ScrollableControl>();
+            Control walker = targetControl.Parent;
+            while (walker != null && walker != parentControl)
+            {
+                ScrollableControl scrollable = walker as ScrollableControl;
+                if (scrollable != null && scrollable.AutoScroll) // we need to gat on this otherwise items in ucOtherButtons are found
+                {
+                    scrollers.Add(scrollable);
+                }
+                walker = walker.Parent;
+            }
+            ScrollableControl parent_scrollable = parentControl as ScrollableControl;
+            if (parent_scrollable != null && parent_scrollable.AutoScroll) // we need to gat on this otherwise items in ucOtherButtons are found
+            {
+                scrollers.Add(parent_scrollable);
+            }
+
+            for (int i = 0; i < scrollers.Count; i++)
+            {
+                ScrollableControl s = scrollers[i];
+                s.ScrollControlIntoView(targetControl);
+                s.Update();
             }
         }
 
@@ -514,6 +726,8 @@ namespace Thetis
                 {
                     foreach (KeyValuePair<string, SearchData> kvp in _searchData)
                     {
+                        if (kvp.Value.Control == null) continue;
+
                         XmlElement elementElement = xmlDoc.CreateElement("element");
                         XmlElement controlElement = xmlDoc.CreateElement("control");
                         controlElement.InnerText = kvp.Key;
@@ -565,10 +779,22 @@ namespace Thetis
             lock (_objLocker)
             {
                 SearchData sd = lstResults.SelectedItem as SearchData;
-                _highlightReusults = chkHighlight.Checked;                
+                _highlightResults = chkHighlight.Checked;                
                 txtSearch_TextChanged(this, EventArgs.Empty);
                 if(sd != null)
                     lstResults.SelectedItem = sd; 
+            }
+        }
+
+        private void chkKeywords_CheckedChanged(object sender, EventArgs e)
+        {
+            lock (_objLocker)
+            {
+                SearchData sd = lstResults.SelectedItem as SearchData;
+                _keywords = chkKeywords.Checked;
+                txtSearch_TextChanged(this, EventArgs.Empty);
+                if (sd != null)
+                    lstResults.SelectedItem = sd;
             }
         }
     }

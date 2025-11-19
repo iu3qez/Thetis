@@ -2,7 +2,7 @@
 
 This file is part of a program that implements a Software-Defined Radio.
 
-Copyright (C) 2013, 2016, 2022 Warren Pratt, NR0V
+Copyright (C) 2013, 2016, 2022, 2025 Warren Pratt, NR0V
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -186,6 +186,33 @@ double* fir_fsamp (int N, double* A, int rtype, double scale, int wintype)
 
 double* fir_bandpass (int N, double f_low, double f_high, double samplerate, int wintype, int rtype, double scale)
 {
+	// check for previous in the cache
+	struct Params 
+	{
+		int N;
+		int wintype;
+		int rtype;
+		double f_low;
+		double f_high;
+		double samplerate;
+		double scale;
+	};
+
+	struct Params params;
+	memset(&params, 0, sizeof(params));
+	params.N = N;
+	params.wintype = wintype;
+	params.rtype = rtype;
+	params.f_low = f_low;
+	params.f_high = f_high;
+	params.samplerate = samplerate;
+	params.scale = scale;
+
+	HASH_T h = fnv1a_hash(&params, sizeof(params));
+	double* imp = get_impulse_cache_entry(FIR_CACHE, h, N);
+	if (imp) return imp;
+	//
+
 	double *c_impulse = (double *) malloc0 (N * sizeof (complex));
 	double ft = (f_high - f_low) / (2.0 * samplerate);
 	double ft_rad = TWOPI * ft;
@@ -225,6 +252,7 @@ double* fir_bandpass (int N, double f_low, double f_high, double samplerate, int
 					+ cosphi *  ( - 0.04672 )));
 			break;
 		case 1:	// Blackman-Harris 7-term
+		default:
 			cosphi = cos (delta * i);
 			window	=			  + 6.3964424114390378e-02
 					+ cosphi *  ( - 2.3993864599352804e-01
@@ -250,6 +278,10 @@ double* fir_bandpass (int N, double f_low, double f_high, double samplerate, int
 			break;
 		}
 	}
+
+	// store in cache
+	add_impulse_to_cache(FIR_CACHE, h, N, c_impulse);
+
 	return c_impulse;
 }
 
@@ -266,26 +298,32 @@ double *fir_read (int N, const char *filename, int rtype, double scale)
 	int i;
 	double I, Q;
 	double *c_impulse = (double *) malloc0 (N * sizeof (complex));
-	file = fopen (filename, "r");
-	for (i = 0; i < N; i++)
+	if (file = fopen(filename, "r"))
 	{
-		// read in the complex impulse response
-		// NOTE:  IF the freq response is symmetrical about 0, the imag coeffs will all be zero.
-		switch (rtype)
+		int error = 0;
+		for (i = 0; i < N; i++)
 		{
-		case 0:
-			fscanf (file, "%le", &I);
-			c_impulse[i] = + scale * I;
-			break;
-		case 1:
-			fscanf (file, "%le", &I);
-			fscanf (file, "%le", &Q);
-			c_impulse[2 * i + 0] = + scale * I;
-			c_impulse[2 * i + 1] = - scale * Q;
-			break;
+			// read in the complex impulse response
+			// NOTE:  IF the freq response is symmetrical about 0, the imag coeffs will all be zero.
+			switch (rtype)
+			{
+			case 0:
+				if (error == 0 && fscanf(file, "%le", &I) != 1) error = 1;
+				if (error == 0) 
+					c_impulse[i] = + scale * I;
+				break;
+			case 1:
+					if (error == 0 && (fscanf(file, "%le", &I) != 1 || fscanf(file, "%le", &Q) != 1)) error = 1;
+					if (error == 0)
+					{
+						c_impulse[2 * i + 0] = + scale * I;
+						c_impulse[2 * i + 1] = - scale * Q;
+					}
+				break;
+			}
 		}
+		fclose (file);
 	}
-	fclose (file);
 	return c_impulse;
 }
 
@@ -318,6 +356,36 @@ void analytic (int N, double* in, double* out)
 
 void mp_imp (int N, double* fir, double* mpfir, int pfactor, int polarity)
 {
+	// check for previous in the cache
+	struct Params 
+	{
+		int N;
+		int pfactor;
+		int polarity;
+	};
+
+	struct Params params;
+	memset(&params, 0, sizeof(params));
+	params.N = N;
+	params.pfactor = pfactor;
+	params.polarity = polarity;
+
+	HASH_T h = fnv1a_hash(&params, sizeof(params));
+
+	size_t arr_len = N * sizeof(complex);
+	HASH_T hf = fnv1a_hash((uint8_t*)fir, arr_len);
+	h ^= hf + GOLDEN_RATIO + (h << 6) + (h >> 2);
+
+	double* imp = get_impulse_cache_entry(MP_CACHE, h, N);
+	if (imp)
+	{
+		//comment to verify cache operation - comment the following 3 lines if testing of cached vs calculated mpfir is required
+		memcpy(mpfir, imp, N * sizeof(complex)); // need to copy into mpfir  
+		_aligned_free(imp); // free the cache return value as data copied into mpfir, we are done with this
+		return;  //comment to verify cache operation
+	}
+	//
+
 	int i;
 	int size = N * pfactor;
 	double inv_PN = 1.0 / (double)size;
@@ -365,6 +433,37 @@ void mp_imp (int N, double* fir, double* mpfir, int pfactor, int polarity)
 	_aligned_free (mag);
 	_aligned_free (firfreq);
 	_aligned_free (firpad);
+
+	//comment to verify cache operation - comment this next line (add_impulse...) if cache verification testing is required
+	// store in cache
+	add_impulse_to_cache(MP_CACHE, h, N, mpfir);  //comment to verify cache operation
+	
+	// debug test code, comment out areas of code above see //comment to verify cache operation
+	// and uncomment this block to verify cache operation
+	//
+	//if (imp == NULL)
+	//{
+	//	add_impulse_to_cache(MP_CACHE, h, N, mpfir);
+	//}
+	//else
+	//{
+	//	// if cache hit, verify that cache contents is the same as newly calculated
+	//	// byte check that cached against mpfir
+	// 
+	//	size_t bytes = (size_t)N * sizeof(complex);
+	//	int same = memcmp(imp, mpfir, bytes) == 0;
+	//	_aligned_free(imp);
+	//	
+	//	if(!same)
+	//	{
+	//		FILE* f = fopen("c:\mp_imp_cache_error.txt", "w");
+	//		if (f)
+	//		{
+	//			fprintf(f, "Error:  mp_imp cache entry does not match newly calculated value!\n");
+	//			fclose(f);
+	//		}
+	//	}
+	//}
 }
 
 // impulse response of a zero frequency filter comprising a cascade of two resonators, 

@@ -1,4 +1,45 @@
-﻿using System;
+﻿/*  cmaster.cs
+
+This file is part of a program that implements a Software-Defined Radio.
+
+This code/file can be found on GitHub : https://github.com/ramdor/Thetis
+
+Copyright (C) 2000-2025 Original authors
+Copyright (C) 2020-2025 Richard Samphire MW0LGE
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+The author can be reached by email at
+
+mw0lge@grange-lane.co.uk
+*/
+//
+//============================================================================================//
+// Dual-Licensing Statement (Applies Only to Author's Contributions, Richard Samphire MW0LGE) //
+// ------------------------------------------------------------------------------------------ //
+// For any code originally written by Richard Samphire MW0LGE, or for any modifications       //
+// made by him, the copyright holder for those portions (Richard Samphire) reserves the       //
+// right to use, license, and distribute such code under different terms, including           //
+// closed-source and proprietary licences, in addition to the GNU General Public License      //
+// granted above. Nothing in this statement restricts any rights granted to recipients under  //
+// the GNU GPL. Code contributed by others (not Richard Samphire) remains licensed under      //
+// its original terms and is not affected by this dual-licensing statement in any way.        //
+// Richard Samphire can be reached by email at :  mw0lge@grange-lane.co.uk                    //
+//============================================================================================//
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -356,7 +397,19 @@ namespace Thetis
         public static int PSrate
         {
             get { return ps_rate; }
-            set { ps_rate = value; }
+            set 
+            {
+                ps_rate = value;
+
+                if(HardwareSpecific.Model == HPSDRModel.REDPITAYA) //DH1KLM
+                {
+                    // get transmitter identifiers
+                    int txinid = cmaster.inid(1, 0);        // stream id  REDPITAYA Pavel
+                    int txch = cmaster.chid(txinid, 0);     // wdsp channel REDPITAYA Pavel
+
+                    puresignal.SetPSFeedbackRate(txch, ps_rate); // REDPITAYA Pavel
+                }
+            }
         }
 
         public static RadioProtocol CurrentRadioProtocol { get; set; }
@@ -423,7 +476,7 @@ namespace Thetis
             {
                 ps_loopback = value;
                 if (Audio.console != null)
-                    CMLoadRouterAll(Audio.console.CurrentHPSDRModel);
+                    CMLoadRouterAll(HardwareSpecific.Model);
             }
         }
 
@@ -431,7 +484,7 @@ namespace Thetis
         {
             switch (NetworkIO.CurrentRadioProtocol)
             {
-                case RadioProtocol.USB:
+                case RadioProtocol.USB: //Protocol 1
                     if (ps_loopback)
                     {
                         switch (model)
@@ -491,6 +544,7 @@ namespace Thetis
                             case HPSDRModel.ANAN7000D:
                             case HPSDRModel.ANAN8000D:
                             case HPSDRModel.ANVELINAPRO3:
+                            case HPSDRModel.REDPITAYA: //DH1KLM
                                 int[] FIVE_DDC_Function = new int[48]
                                     {
                                     2, 2, 2, 2, 2, 0, 2, 0,     // DDC0+DDC1, port 1035, Call 0
@@ -573,6 +627,7 @@ namespace Thetis
                             case HPSDRModel.ANAN7000D:
                             case HPSDRModel.ANAN8000D:
                             case HPSDRModel.ANVELINAPRO3:
+                            case HPSDRModel.REDPITAYA: //DH1KLM
                                 int[] FIVE_DDC_Function = new int[24]
                                     {
                                     2, 2, 2, 2, 2, 2, 2, 2,     // DDC0+DDC1, port 1035, Call 0
@@ -597,7 +652,7 @@ namespace Thetis
                         }
                     }
                     break;
-                case RadioProtocol.ETH:
+                case RadioProtocol.ETH: //Protocol 2
                     if (ps_loopback)    // for test purposes
                     {
                         switch (model)
@@ -608,6 +663,7 @@ namespace Thetis
                             case HPSDRModel.ANAN7000D:
                             case HPSDRModel.ANAN8000D:
                             case HPSDRModel.ANVELINAPRO3:
+                            case HPSDRModel.REDPITAYA: //DH1KLM
                             case HPSDRModel.ANAN_G2:
                             case HPSDRModel.ANAN_G2_1K:
                                 // This ANGELIA table is for test purposes and it routes DDC0 and DDC1 to RX1 and RX2, 
@@ -701,6 +757,7 @@ namespace Thetis
                             case HPSDRModel.ANAN7000D:
                             case HPSDRModel.ANAN8000D:
                             case HPSDRModel.ANVELINAPRO3:
+                            case HPSDRModel.REDPITAYA: //DH1KLM
                             case HPSDRModel.ANAN_G2:
                             case HPSDRModel.ANAN_G2_1K:
                                 // control bits are { MOX, Diversity_Enabled, PureSignal_Enabled }
@@ -1475,134 +1532,5 @@ namespace Thetis
     }
 
 #endregion
-
-    #region CMASIO Sidetone
-
-    public static class CMASIOSidetone
-    {
-        // Callback delegates (must be kept alive to prevent GC collection!)
-        private static NetworkIO.GetSidetoneEnabledDelegate _getEnabledDelegate;
-        private static NetworkIO.GetSidetoneFreqDelegate _getFreqDelegate;
-        private static NetworkIO.GetSidetoneVolumeDelegate _getVolumeDelegate;
-
-        // Initialize callbacks (called during Console startup)
-        public static void InitializeCallbacks()
-        {
-            try
-            {
-                // Create delegates and keep references to prevent GC
-                _getEnabledDelegate = GetCMASIOSidetoneEnabled;
-                _getFreqDelegate = GetCMASIOSidetoneFreq;
-                _getVolumeDelegate = GetCMASIOSidetoneVolume;
-
-                // Register callbacks with C layer
-                NetworkIO.setCMASIO_Callbacks(
-                    _getEnabledDelegate,
-                    _getFreqDelegate,
-                    _getVolumeDelegate);
-
-                System.Diagnostics.Debug.WriteLine("CMASIO: Callbacks initialized successfully");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"CMASIO InitializeCallbacks exception: {ex.Message}");
-            }
-        }
-
-        // Callback: Read sidetone enabled state from existing console parameters
-        private static int GetCMASIOSidetoneEnabled()
-        {
-            try
-            {
-                // CMASIO sidetone is enabled when BOTH conditions are true:
-                // 1. CWSidetone enabled (setup.cs:chkDSPKeyerSidetone)
-                // 2. Semi Break-In mode active (console.cs:chkQSK CheckState.Checked)
-
-                bool sidetone_on = Console.CurrentConsole.CWSidetone;
-                bool semi_breakin = (Console.CurrentConsole.BreakInEnabledState == CheckState.Checked);
-
-                return (sidetone_on && semi_breakin) ? 1 : 0;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"CMASIO GetEnabled exception: {ex.Message}");
-                return 0;
-            }
-        }
-
-        // Callback: Read sidetone frequency from existing console parameter
-        private static int GetCMASIOSidetoneFreq()
-        {
-            try
-            {
-                // Uses existing console.cs:cw_pitch (line 18099)
-                // Set by setup.cs:udDSPCWPitch (Setup > DSP > Keyer > CW Pitch)
-                int freq = Console.CurrentConsole.CWPitch;
-
-                // Sanity check (200-1200 Hz range)
-                if (freq < 200) freq = 200;
-                if (freq > 1200) freq = 1200;
-
-                return freq;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"CMASIO GetFreq exception: {ex.Message}");
-                return 600; // Default fallback
-            }
-        }
-
-        // Callback: Read sidetone volume from existing console parameter
-        private static double GetCMASIOSidetoneVolume()
-        {
-            try
-            {
-                // Uses existing console.cs:qsk_sidetone_volume (line 12913)
-                // Semi Break-In: use TXAF, QSK: use qsk_sidetone_volume
-
-                int volume_percent;
-
-                if (Console.CurrentConsole.BreakInEnabledState == CheckState.Checked)
-                {
-                    // Semi Break-In mode: use TX AF level (0-100)
-                    volume_percent = Console.CurrentConsole.TXAF;
-                }
-                else
-                {
-                    // QSK mode: use QSK sidetone volume (0-100)
-                    volume_percent = Console.CurrentConsole.QSKSidetoneVolume;
-                }
-
-                // Convert to 0.0-1.0 range
-                double volume = (double)volume_percent / 100.0;
-
-                // Sanity check
-                if (volume < 0.0) volume = 0.0;
-                if (volume > 1.0) volume = 1.0;
-
-                return volume;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"CMASIO GetVolume exception: {ex.Message}");
-                return 0.5; // Default fallback 50%
-            }
-        }
-
-        // Notify C layer of TX state change
-        public static void SetTXActive(bool tx_active)
-        {
-            try
-            {
-                NetworkIO.setCMASIO_TXActive(tx_active ? 1 : 0);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"CMASIO SetTXActive exception: {ex.Message}");
-            }
-        }
-    }
-
-    #endregion
 
 }

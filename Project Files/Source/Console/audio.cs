@@ -26,6 +26,19 @@
 //    Austin, TX 78750
 //    USA
 //=================================================================
+//
+//============================================================================================//
+// Dual-Licensing Statement (Applies Only to Author's Contributions, Richard Samphire MW0LGE) //
+// ------------------------------------------------------------------------------------------ //
+// For any code originally written by Richard Samphire MW0LGE, or for any modifications       //
+// made by him, the copyright holder for those portions (Richard Samphire) reserves the       //
+// right to use, license, and distribute such code under different terms, including           //
+// closed-source and proprietary licences, in addition to the GNU General Public License      //
+// granted above. Nothing in this statement restricts any rights granted to recipients under  //
+// the GNU GPL. Code contributed by others (not Richard Samphire) remains licensed under      //
+// its original terms and is not affected by this dual-licensing statement in any way.        //
+// Richard Samphire can be reached by email at :  mw0lge@grange-lane.co.uk                    //
+//============================================================================================//
 
 using System;
 using System.Collections;
@@ -229,25 +242,6 @@ namespace Thetis
             {
                 monitor_volume = value;
                 cmaster.CMSetAudioVolume(value);
-
-                ////MW0LGE_21k-rc2
-                //if (vfob_tx)
-                //{
-                //    if (rx2_enabled) // need to check the vac2 split thing ?
-                //    {
-                //        ivac.SetIVACmonVol(1, monitor_volume);
-                //    }
-                //    else
-                //    {
-                //        ivac.SetIVACmonVol(0, monitor_volume);
-                //    }
-                //}
-                //else
-                //{
-                //    ivac.SetIVACmonVol(0, monitor_volume);
-                //}
-
-                //MW0LGE [pre g2]
                 ivac.SetIVACmonVol(0, monitor_volume);
             }
         }
@@ -1860,14 +1854,14 @@ namespace Thetis
                     }
                     MessageBox.Show(fw_err, "Firmware Error",
                                     MessageBoxButtons.OK,
-                                    MessageBoxIcon.Error);
+                                    MessageBoxIcon.Error, MessageBoxDefaultButton.Button1, Common.MB_TOPMOST);
                     return false;
                 }
                 else
                 {
                     MessageBox.Show("Error starting SDR hardware, is it connected and powered?", "Network Error",
                                     MessageBoxButtons.OK,
-                                    MessageBoxIcon.Error);
+                                    MessageBoxIcon.Error, MessageBoxDefaultButton.Button1, Common.MB_TOPMOST);
                     return false;
                 }
             }
@@ -1877,18 +1871,11 @@ namespace Thetis
             {
                 console.SampleRateTX = 48000; // set tx audio sampling rate  
                 WDSP.SetTXACFIRRun(cmaster.chid(cmaster.inid(1, 0), 0), false);
-                //puresignal.SetPSHWPeak(cmaster.chid(cmaster.inid(1, 0), 0), 0.4072);
-                //console.psform.PSdefpeak = "0.4072"; //MW0LGE_21k9rc5 moved to psform.SetDefaultPeaks(), called below
             }
             else
             {
                 console.SampleRateTX = 192000;
                 WDSP.SetTXACFIRRun(cmaster.chid(cmaster.inid(1, 0), 0), true);
-                //if(console.CurrentHPSDRHardware == HPSDRHW.Saturn)                              // G8NJJ  // MW0LGE note, we do this below by calling SetDefaultPeaks if needed
-                //    puresignal.SetPSHWPeak(cmaster.chid(cmaster.inid(1, 0), 0), 0.6121);
-                //else
-                //    puresignal.SetPSHWPeak(cmaster.chid(cmaster.inid(1, 0), 0), 0.2899);
-                //console.psform.PSdefpeak = "0.2899"; //moved to psform.SetDefaultPeaks(), called below
             }
 
             //console.psform.SetDefaultPeaks(NetworkIO.CurrentRadioProtocol != oldProto); // if the procol changed, force it MW0LGE_21k9rc6

@@ -26,13 +26,25 @@
 //    USA
 //
 //=================================================================
-// Continual modifications Copyright (C) 2019-2024 Richard Samphire (MW0LGE)
+// Continual modifications Copyright (C) 2019-2025 Richard Samphire (MW0LGE)
 //=================================================================
+//
+//============================================================================================//
+// Dual-Licensing Statement (Applies Only to Author's Contributions, Richard Samphire MW0LGE) //
+// ------------------------------------------------------------------------------------------ //
+// For any code originally written by Richard Samphire MW0LGE, or for any modifications       //
+// made by him, the copyright holder for those portions (Richard Samphire) reserves the       //
+// right to use, license, and distribute such code under different terms, including           //
+// closed-source and proprietary licences, in addition to the GNU General Public License      //
+// granted above. Nothing in this statement restricts any rights granted to recipients under  //
+// the GNU GPL. Code contributed by others (not Richard Samphire) remains licensed under      //
+// its original terms and is not affected by this dual-licensing statement in any way.        //
+// Richard Samphire can be reached by email at :  mw0lge@grange-lane.co.uk                    //
+//============================================================================================//
 
 using System;
 using System.Diagnostics;
 using System.Drawing;
-using System.Collections;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Linq;
@@ -50,12 +62,29 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
+using System.Runtime.CompilerServices;
+using System.Management;
 
 namespace Thetis
 {
+    public static class FloatExtensions
+    {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float Clamp(this float v, float min, float max) => (v < min) ? min : (v > max) ? max : v;
+    }
 	public static class StringExtensions
 	{
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static string Truncate(this string source, int maxLength)
+        {
+            if (source == null)
+                throw new ArgumentNullException(nameof(source));
+            if (source.Length <= maxLength)
+                return source;
+            return source.Substring(0, maxLength);
+        }
         // extend contains to be able to ignore case etc MW0LGE
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool Contains(this string source, string toCheck, StringComparison comp)
 		{
             if (source == null)
@@ -69,7 +98,7 @@ namespace Thetis
 
             return source?.IndexOf(toCheck, comp) >= 0;
 		}
-
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string Left(this string source, int length)
         {
             if (source == null)
@@ -84,6 +113,7 @@ namespace Thetis
 
             return source.Length > length ? source.Substring(0, length) : source;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string Right(this string source, int length)
         {
             if (source == null)
@@ -98,9 +128,33 @@ namespace Thetis
 
             return length >= source.Length ? source : source.Substring(source.Length - length);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static string ReplaceIgnoreTokenCase(this string source, string token, string replacement)
+        {
+            if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(token))
+                return source;
+
+            int pos = 0;
+            int idx = source.IndexOf(token, pos, StringComparison.OrdinalIgnoreCase);
+            if (idx < 0) return source;
+
+            StringBuilder sb = new StringBuilder(source.Length + Math.Max(0, replacement.Length - token.Length) * 4);
+
+            while (idx >= 0)
+            {
+                sb.Append(source, pos, idx - pos);
+                sb.Append(replacement);
+                pos = idx + token.Length;
+                idx = source.IndexOf(token, pos, StringComparison.OrdinalIgnoreCase);
+            }
+
+            sb.Append(source, pos, source.Length - pos);
+            return sb.ToString();
+        }
     }
     public static class ControlExtentions
     {
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static string GetFullName(this Control control)
         {
             if (control == null)
@@ -205,7 +259,8 @@ namespace Thetis
 				}
 			}
 
-			c.Invalidate();
+			//c.Invalidate();
+            c.Refresh();
 		}
 		#endregion
 		#region WindowDropShadow
@@ -321,55 +376,7 @@ namespace Thetis
 
             DB.SaveVars(tablename, control_data);
         }
-        //        public static void SaveForm(Form form, string tablename)
-        //		{
-        //            if (DB.ds == null) return;
 
-        //			ArrayList a = new ArrayList();
-        //			ArrayList temp = new ArrayList();
-
-        //			ControlList(form, ref temp);
-
-        //			foreach(Control c in temp)				// For each control
-        //			{
-        //				if(c.GetType() == typeof(CheckBoxTS))
-        //					a.Add(c.Name+"/"+((CheckBoxTS)c).Checked.ToString());
-        //				else if(c.GetType() == typeof(ComboBoxTS))
-        //				{
-        //					//if(((ComboBox)c).SelectedIndex >= 0)
-        //					a.Add(c.Name+"/"+((ComboBoxTS)c).Text);
-        //				}
-        //				else if(c.GetType() == typeof(NumericUpDownTS))
-        //					a.Add(c.Name+"/"+((NumericUpDownTS)c).Value.ToString());
-        //				else if(c.GetType() == typeof(RadioButtonTS))
-        //					a.Add(c.Name+"/"+((RadioButtonTS)c).Checked.ToString());
-        //				else if(c.GetType() == typeof(TextBoxTS))
-        //					a.Add(c.Name+"/"+((TextBoxTS)c).Text);
-        //				else if(c.GetType() == typeof(TrackBarTS))
-        //					a.Add(c.Name+"/"+((TrackBarTS)c).Value.ToString());
-        //				else if(c.GetType() == typeof(ColorButton))
-        //				{
-        //					Color clr = ((ColorButton)c).Color;
-        //					a.Add(c.Name+"/"+clr.R+"."+clr.G+"."+clr.B+"."+clr.A);
-        //				}
-        //#if(DEBUG)
-        //				else if(c.GetType() == typeof(GroupBox) ||
-        //					c.GetType() == typeof(CheckBoxTS) ||
-        //					c.GetType() == typeof(ComboBox) ||
-        //					c.GetType() == typeof(NumericUpDown) ||
-        //					c.GetType() == typeof(RadioButton) ||
-        //					c.GetType() == typeof(TextBox) ||
-        //					c.GetType() == typeof(TrackBar))
-        //					Debug.WriteLine(form.Name + " -> " + c.Name+" needs to be converted to a Thread Safe control.");
-        //#endif
-        //			}
-        //			a.Add("Top/"+form.Top);
-        //			a.Add("Left/"+form.Left);
-        //			a.Add("Width/"+form.Width);
-        //			a.Add("Height/"+form.Height);
-
-        //			DB.SaveVars(tablename, ref a);		// save the values to the DB
-        //		}
         public static void RestoreForm(Form form, string tablename, bool restore_size)
         {
             if (DB.ds == null) return;
@@ -464,324 +471,17 @@ namespace Thetis
             ForceFormOnScreen(form);
         }
 
-        //public static void RestoreForm(Form form, string tablename, bool restore_size)
-        //{
-        //          if (DB.ds == null) return;
-
-        //          ArrayList temp = new ArrayList();		// list of all first level controls
-        //	ControlList(form, ref temp);
-
-        //	//[2.10.2.3]MW0LGE change to single dictionary of controls
-        //	Dictionary<string, Control> ctrls = new Dictionary<string, Control>();
-
-        //	foreach(Control c in temp)
-        //	{
-        //              ctrls.Add(c.Name, c); //[2.10.2.3]MW0LGE yes, control names are unique per form, and to create and search each list is madness
-        //          }
-        //	temp.Clear();	// now that we have the controls we want, delete first list 
-
-        //	ArrayList a = DB.GetVars(tablename);						// Get the saved list of controls
-        //	a.Sort();
-
-        //	// restore saved values to the controls
-        //	foreach(string s in a)				// string is in the format "name,value"
-        //	{
-        //		string[] vals = s.Split('/');
-        //		if(vals.Length > 2)
-        //		{
-        //			for(int i=2; i<vals.Length; i++)
-        //				vals[1] += "/"+vals[i];
-        //		}
-
-        //		string name = vals[0];
-        //		string val = vals[1];
-
-        //		switch(name)
-        //		{
-        //			case "Top":
-        //				form.StartPosition = FormStartPosition.Manual;
-        //				int top = int.Parse(val);
-        //				form.Top = top;
-        //				break;
-        //			case "Left":
-        //				form.StartPosition = FormStartPosition.Manual;
-        //				int left = int.Parse(val);
-        //				form.Left = left;
-        //				break;
-        //			case "Width":
-        //				if(restore_size)
-        //				{
-        //					int width = int.Parse(val);
-        //					form.Width = width;
-        //				}
-        //				break;
-        //			case "Height":
-        //				if(restore_size)
-        //				{
-        //					int height = int.Parse(val);
-        //					form.Height = height;
-        //				}
-        //				break;
-        //		}
-
-        //		if(s.StartsWith("chk"))			// control is a CheckBoxTS
-        //		{
-        //			if (ctrls.ContainsKey(name)) ((CheckBoxTS)ctrls[name]).Checked = bool.Parse(val);
-        //              }
-        //		else if(s.StartsWith("combo"))	// control is a ComboBox
-        //		{
-        //			if (ctrls.ContainsKey(name)) ((ComboBoxTS)ctrls[name]).Text = val;
-        //              }
-        //		else if(s.StartsWith("ud"))
-        //		{
-        //                  if (ctrls.ContainsKey(name))
-        //                  {
-        //                      NumericUpDownTS c = (NumericUpDownTS)ctrls[name];
-        //                      decimal dnum = decimal.Parse(val);
-        //                      if (dnum > c.Maximum) dnum = c.Maximum;
-        //                      else if (dnum < c.Minimum) dnum = c.Minimum;
-        //                      c.Value = dnum;
-        //                  }
-        //              }
-        //		else if(s.StartsWith("rad"))
-        //		{
-        //                  if (ctrls.ContainsKey(name))
-        //                  {
-        //                      RadioButtonTS c = (RadioButtonTS)ctrls[name];
-        //                      if (!val.ToLower().Equals("true") && !val.ToLower().Equals("false")) val = "True";
-        //                      c.Checked = bool.Parse(val);
-        //                  }
-        //              }
-        //		else if(s.StartsWith("txt"))
-        //		{
-        //                  if (ctrls.ContainsKey(name)) ((TextBoxTS)ctrls[name]).Text = val;
-        //              }
-        //		else if(s.StartsWith("tb"))
-        //		{
-        //			if (ctrls.ContainsKey(name))
-        //			{
-        //				TrackBarTS c = (TrackBarTS)ctrls[name];
-        //				int num = int.Parse(val);
-        //				if (num > c.Maximum) num = c.Maximum;
-        //				if (num < c.Minimum) num = c.Minimum;
-        //                      c.Value = num;
-        //                  }
-        //              }
-        //		else if(s.StartsWith("clrbtn"))
-        //		{
-        //			if (ctrls.ContainsKey(name))
-        //			{
-        //                      string[] colors = val.Split('.');
-        //				if (colors.Length == 4)
-        //				{
-        //					int R, G, B, A;
-        //					R = Int32.Parse(colors[0]);
-        //					G = Int32.Parse(colors[1]);
-        //					B = Int32.Parse(colors[2]);
-        //					A = Int32.Parse(colors[3]);
-        //					ColorButton c = (ColorButton)ctrls[name];
-        //                          c.Color = Color.FromArgb(A, R, G, B);
-        //                      }
-        //			}
-        //		}
-        //	}
-
-        //	ForceFormOnScreen(form);
-        //}
-
         public static (bool resized, bool relocated) ForceFormOnScreen(Form f, bool shrink_to_fit = false, bool keep_on_screen = false)
         {
+            // shrink_to_fit - if form is larger than screen, shrink it to fit
+            // keep_on_screen - if form is off screen, move it to be on screen. Spanning screens is allowed
+
             if (f == null) return (false, false);
 
-            bool resized = false;
-            bool relocated = false;
-            Screen[] screens = Screen.AllScreens;
+            (Rectangle newPos, bool resized, bool repositioned) = SafeScreens.EnsureRectangleWithinNearestScreen(null, f, keep_on_screen, true);
 
-            if (screens.Length == 0)
-            {
-                f.Location = new Point(0, 0);
-                return (false, false);
-            }
-
-            if (keep_on_screen)
-            {
-                // Find the screen where the mouse cursor is currently located
-                Screen screen = Screen.FromPoint(Cursor.Position);
-                Rectangle screenBounds = screen.WorkingArea;
-
-                // Ensure the form is within the screen's bounds
-                if (f.Left < screenBounds.Left)
-                {
-                    f.Left = screenBounds.Left;
-                    relocated = true;
-                }
-                if (f.Top < screenBounds.Top)
-                {
-                    f.Top = screenBounds.Top;
-                    relocated = true;
-                }
-                if (f.Right > screenBounds.Right)
-                {
-                    f.Left = screenBounds.Right - f.Width;
-                    relocated = true;
-                }
-                if (f.Bottom > screenBounds.Bottom)
-                {
-                    f.Top = screenBounds.Bottom - f.Height;
-                    relocated = true;
-                }
-
-                // Shrink the form to fit within the screen's bounds
-                if (shrink_to_fit)
-                {
-                    int formWidth = f.Width;
-                    int formHeight = f.Height;
-
-                    if (f.Width > screenBounds.Width)
-                    {
-                        formWidth = screenBounds.Width;
-                        resized = true;
-                    }
-
-                    if (f.Height > screenBounds.Height)
-                    {
-                        formHeight = screenBounds.Height;
-                        resized = true;
-                    }
-
-                    f.Size = new Size(formWidth, formHeight);
-                }
-            }
-            else
-            {
-                // Calculate the full virtual screen area
-                int left = int.MaxValue, top = int.MaxValue;
-                int right = int.MinValue, bottom = int.MinValue;
-
-                foreach (Screen screen in screens)
-                {
-                    if (screen.Bounds.Left < left)
-                        left = screen.Bounds.Left;
-                    if (screen.Bounds.Top < top)
-                        top = screen.Bounds.Top;
-                    if (screen.Bounds.Right > right)
-                        right = screen.Bounds.Right;
-                    if (screen.Bounds.Bottom > bottom)
-                        bottom = screen.Bounds.Bottom;
-                }
-
-                bool onScreen = f.Left >= left &&
-                                f.Top >= top &&
-                                f.Right <= right &&
-                                f.Bottom <= bottom;
-
-                if (!onScreen)
-                {
-                    if (f.Left < left)
-                        f.Left = left;
-                    if (f.Top < top)
-                        f.Top = top;
-                    if (f.Right > right)
-                        f.Left = right - f.Width;
-                    if (f.Bottom > bottom)
-                        f.Top = bottom - f.Height;
-
-                    relocated = true;
-                }
-
-                if (shrink_to_fit)
-                {
-                    int formWidth = f.Width;
-                    int formHeight = f.Height;
-
-                    if (f.Width > right - left)
-                    {
-                        formWidth = right - left;
-                        resized = true;
-                    }
-
-                    if (f.Height > bottom - top)
-                    {
-                        formHeight = bottom - top;
-                        resized = true;
-                    }
-
-                    f.Size = new Size(formWidth, formHeight);
-                }
-            }
-
-            return (relocated, resized);
+            return (resized, repositioned);
         }
-
-
-        //public static (bool resized, bool shrunk) ForceFormOnScreen(Form f, bool shrink_to_fit = false)
-        //{
-        //          bool resized = false;
-        //          bool relocated = false;
-        //          Screen[] screens = Screen.AllScreens;
-
-        //          if (screens.Length == 0)
-        //          {
-        //              f.Location = new Point(0, 0);
-        //              return (false, false);
-        //          }
-
-        //          int left = int.MaxValue, top = int.MaxValue;
-        //          int right = int.MinValue, bottom = int.MinValue;
-
-        //          foreach (Screen screen in screens)
-        //          {
-        //              if (screen.Bounds.Left < left)
-        //                  left = screen.Bounds.Left;
-        //              if (screen.Bounds.Top < top)
-        //                  top = screen.Bounds.Top;
-        //              if (screen.Bounds.Right > right)
-        //                  right = screen.Bounds.Right;
-        //              if (screen.Bounds.Bottom > bottom)
-        //                  bottom = screen.Bounds.Bottom;
-        //          }
-
-        //          bool onScreen = f.Left >= left &&
-        //                          f.Top >= top &&
-        //                          f.Right <= right &&
-        //                          f.Bottom <= bottom;
-
-        //          if (!onScreen)
-        //          {
-        //              if (f.Left < left)
-        //                  f.Left = left;
-        //              if (f.Top < top)
-        //                  f.Top = top;
-        //              if (f.Right > right)
-        //                  f.Left = right - f.Width;
-        //              if (f.Bottom > bottom)
-        //                  f.Top = bottom - f.Height;
-
-        //              relocated = true;
-        //          }
-
-        //          if (shrink_to_fit)
-        //          {
-        //              int formWidth = f.Width;
-        //              int formHeight = f.Height;
-
-        //              if (f.Width > right - left)
-        //              {
-        //                  formWidth = right - left;
-        //                  resized = true;
-        //              }
-
-        //              if (f.Height > bottom - top)
-        //              {
-        //                  formHeight = bottom - top;
-        //                  resized = true;
-        //              }
-
-        //              f.Size = new Size(formWidth, formHeight);
-        //          }
-
-        //          return (relocated, resized);
-        //      }
 
         public static void TabControlInsert(TabControl tc, TabPage tp, int index)
 		{
@@ -961,8 +661,7 @@ namespace Thetis
 				return principal.IsInRole(WindowsBuiltInRole.Administrator);
 			}
 		}
-
-		public static bool ShiftKeyDown
+        public static bool ShiftKeyDown
 		{
 			get
 			{
@@ -980,7 +679,8 @@ namespace Thetis
         {
             get
             {
-                return (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
+                //return (Control.ModifierKeys & Keys.Alt) == Keys.Alt;
+                return Keyboard.IsKeyDown(Keys.Menu) || Keyboard.IsKeyDown(Keys.LMenu) || Keyboard.IsKeyDown(Keys.RMenu);
             }
         }
         public static bool Is64Bit
@@ -992,43 +692,12 @@ namespace Thetis
         }
 		public static void DoubleBuffered(Control control, bool enabled)
         {
-            // MW0LGE_[2.9.0.6]
-            // not all controls (such as panels) have double buffered property
-            // try to use reflection, so we can keep the base panel
-            //try
-            //{
-            //    control.GetType().InvokeMember("DoubleBuffered",
-            //                    System.Reflection.BindingFlags.SetProperty | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
-            //                    null, control, new object[] { enabled });
-            //}
-            //catch
-            //{
-            //}
-
-            //[2.10.3.6]MW0LGE
             // Use reflection to set the protected property DoubleBuffered
             PropertyInfo doubleBufferPropertyInfo = control.GetType().GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic);
             if (doubleBufferPropertyInfo != null)
             {
                 doubleBufferPropertyInfo.SetValue(control, enabled, null);
             }
-
-            //// Use reflection to call the protected method SetStyle
-            //MethodInfo setStyleMethod = control.GetType().GetMethod("SetStyle", BindingFlags.Instance | BindingFlags.NonPublic);
-            //if (setStyleMethod != null)
-            //{
-            //    setStyleMethod.Invoke(control, new object[] { ControlStyles.OptimizedDoubleBuffer, enabled });
-            //    setStyleMethod.Invoke(control, new object[] { ControlStyles.AllPaintingInWmPaint, enabled });
-            //    //setStyleMethod.Invoke(control, new object[] { ControlStyles.UserPaint, enabled });
-            //    setStyleMethod.Invoke(control, new object[] { ControlStyles.ResizeRedraw, enabled });
-            //}
-
-            //// Apply the style settings to the control
-            //MethodInfo updateStylesMethod = control.GetType().GetMethod("UpdateStyles", BindingFlags.Instance | BindingFlags.NonPublic);
-            //if (updateStylesMethod != null)
-            //{
-            //    updateStylesMethod.Invoke(control, null);
-            //}
         }
 
 		public static int FiveDigitHash(string str)
@@ -1125,6 +794,53 @@ namespace Thetis
                 else sRet = "S 9 + 60";
             }
             return "    " + sRet;
+        }
+        public static string SMeterFromDBM_Spaceless(double dbm, bool bAboveS9Frequency)
+        {
+            // same as above, but without spaces. Used by MultiMeter display
+
+            if (bAboveS9Frequency)
+            {
+                if (dbm <= -144.0f) return "S0";
+                else if (dbm > -144.0f & dbm <= -138.0f) return "S1";
+                else if (dbm > -138.0f & dbm <= -132.0f) return "S2";
+                else if (dbm > -132.0f & dbm <= -126.0f) return "S3";
+                else if (dbm > -126.0f & dbm <= -120.0f) return "S4";
+                else if (dbm > -120.0f & dbm <= -114.0f) return "S5";
+                else if (dbm > -114.0f & dbm <= -108.0f) return "S6";
+                else if (dbm > -108.0f & dbm <= -102.0f) return "S7";
+                else if (dbm > -102.0f & dbm <= -96.0f) return "S8";
+                else if (dbm > -96.0f & dbm <= -90.0f) return "S9";
+                else if (dbm > -90.0f & dbm <= -86.0f) return "S9+5";
+                else if (dbm > -86.0f & dbm <= -80.0f) return "S9+10";
+                else if (dbm > -80.0f & dbm <= -76.0f) return "S9+15";
+                else if (dbm > -76.0f & dbm <= -66.0f) return "S9+20";
+                else if (dbm > -66.0f & dbm <= -56.0f) return "S9+30";
+                else if (dbm > -56.0f & dbm <= -46.0f) return "S9+40";
+                else if (dbm > -46.0f & dbm <= -36.0f) return "S9+50";
+                else return "S9+60";
+            }
+            else
+            {
+                if (dbm <= -124.0f) return "S0";
+                else if (dbm > -124.0f & dbm <= -118.0f) return "S1";
+                else if (dbm > -118.0f & dbm <= -112.0f) return "S2";
+                else if (dbm > -112.0f & dbm <= -106.0f) return "S3";
+                else if (dbm > -106.0f & dbm <= -100.0f) return "S4";
+                else if (dbm > -100.0f & dbm <= -94.0f) return "S5";
+                else if (dbm > -94.0f & dbm <= -88.0f) return "S6";
+                else if (dbm > -88.0f & dbm <= -82.0f) return "S7";
+                else if (dbm > -82.0f & dbm <= -76.0f) return "S8";
+                else if (dbm > -76.0f & dbm <= -70.0f) return "S9";
+                else if (dbm > -70.0f & dbm <= -66.0f) return "S9+5";
+                else if (dbm > -66.0f & dbm <= -60.0f) return "S9+10";
+                else if (dbm > -60.0f & dbm <= -56.0f) return "S9+15";
+                else if (dbm > -56.0f & dbm <= -46.0f) return "S9+20";
+                else if (dbm > -46.0f & dbm <= -36.0f) return "S9+30";
+                else if (dbm > -36.0f & dbm <= -26.0f) return "S9+40";
+                else if (dbm > -26.0f & dbm <= -16.0f) return "S9+50";
+                else return "S9+60";
+            }
         }
         public static double GetSMeterUnits(double dbm, bool bAboveS9Frequency)
         {
@@ -1362,6 +1078,8 @@ namespace Thetis
 
             return true; // IP and port are valid
         }
+
+        // serilisation for any object type
         public static string SerializeToBase64<T>(T obj)
         {
             using (MemoryStream memoryStream = new MemoryStream())
@@ -1388,50 +1106,38 @@ namespace Thetis
             }
         }
         //
+
         public static bool HasArg(string[] args, string arg)
         {
             if (args == null || args.Length < 1 || string.IsNullOrEmpty(arg)) return false;
 
-            //return args[0].Contains(arg, StringComparison.OrdinalIgnoreCase);
             foreach (string s in args)
             {
                 if (s.Contains(arg, StringComparison.OrdinalIgnoreCase)) return true;
             }
             return false;
         }
-
-        public static HPSDRModel StringModelToEnum(string sModel)
+        public static string ArgParam(string[] args, string arg)
         {
-            switch (sModel.ToUpper())
-            {
-                case "HERMES":
-                    return HPSDRModel.HERMES;
-                case "ANAN-10":
-                    return HPSDRModel.ANAN10;
-                case "ANAN-10E":
-                    return HPSDRModel.ANAN10E;
-                case "ANAN-100":
-                    return HPSDRModel.ANAN100;
-                case "ANAN-100B":
-                    return HPSDRModel.ANAN100B;
-                case "ANAN-100D":
-                    return HPSDRModel.ANAN100D;
-                case "ANAN-200D":
-                    return HPSDRModel.ANAN200D;
-                case "ANAN-7000DLE":
-                    return HPSDRModel.ANAN7000D;
-                case "ANAN-8000DLE":
-                    return HPSDRModel.ANAN8000D;
-                case "ANAN-G2":
-                    return HPSDRModel.ANAN_G2;
-                case "ANAN-G2-1K":
-                    return HPSDRModel.ANAN_G2_1K;
-                case "ANVELINA-PRO3":
-                    return HPSDRModel.ANVELINAPRO3;
-            }
+            string ret = string.Empty;
+            if (args == null || args.Length < 1 || string.IsNullOrEmpty(arg)) return ret;
 
-            return HPSDRModel.FIRST;
+            foreach (string s in args)
+            {
+                if (s.Contains(arg, StringComparison.OrdinalIgnoreCase))
+                {
+                    string trimmed = s.Trim();
+                    int index = trimmed.IndexOf(":");
+                    if (index != -1)
+                    {
+                        ret = trimmed.Substring(index + 1);
+                    }
+                    break;
+                }
+            }
+            return ret;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetLuminance(Color c)
         {
             //https://stackoverflow.com/questions/596216/formula-to-determine-perceived-brightness-of-rgb-color
@@ -1441,6 +1147,7 @@ namespace Thetis
             int b = rGBtoLin(c.B);
             return (r + r + b + g + g + g) / 6; //(fast)
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private static int rGBtoLin(int col)
         {
             float colorChannel = col / 255f;
@@ -1531,5 +1238,510 @@ namespace Thetis
             }
             return new string(result);
         }
+
+        public static bool CanCreateFile(string filePath)
+        {
+            try
+            {
+                string directoryPath = Path.GetDirectoryName(filePath);
+
+                if (!Directory.Exists(directoryPath))
+                {
+                    return false;
+                }
+
+                if (!hasWritePermissionOnDir(directoryPath))
+                {
+                    return false;
+                }
+
+                if (File.Exists(filePath))
+                {
+                    FileInfo fileInfo = new FileInfo(filePath);
+                    if (fileInfo.IsReadOnly)
+                    {
+                        return false;
+                    }
+
+                    if (!isFileWritable(filePath))
+                    {
+                        return false;
+                    }
+                }
+
+                string tempFile = Path.Combine(directoryPath, Path.GetRandomFileName());
+                FileStream tempStream = File.Create(tempFile);
+                tempStream.Close();
+                File.Delete(tempFile);
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        private static bool hasWritePermissionOnDir(string path)
+        {
+            try
+            {
+                string tempFile = Path.Combine(path, Path.GetRandomFileName());
+                FileStream fs = File.Create(tempFile, 1, FileOptions.DeleteOnClose);
+                fs.Close();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool isFileWritable(string filePath)
+        {
+            try
+            {
+                FileStream stream = File.Open(filePath, FileMode.Open, FileAccess.Write);
+                stream.Close();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public static bool GetComPortNumber(string comport, out int portNumber)
+        {
+            string lower_comport = comport.ToLower();
+
+            if (!lower_comport.StartsWith("com"))
+            {
+                portNumber = 0;
+                return false;
+            }
+
+            return int.TryParse(lower_comport.Substring(3), out portNumber);
+        }      
+
+        //[2.10.3.9]MW0LGE performance related
+        [DllImport("kernel32.dll")]
+        private static extern bool SetProcessPriorityBoost(IntPtr processHandle, bool disablePriorityBoost);
+        public static void DisableForegroundPriorityBoost()
+        {
+            try
+            {
+                // Prevent Windows from downgrading app CPU time when it loses focus
+                Process process = Process.GetCurrentProcess();
+                SetProcessPriorityBoost(process.Handle, true);
+            }
+            catch { }
+        }
+        //
+
+        //[2.10.3.9]MW0LGE cpu/memory details
+        public static string GetCpuName()
+        {
+            try
+            {
+                ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_Processor");
+                ManagementObjectCollection results = searcher.Get();
+                string cpuName = "Unknown CPU";
+                foreach (ManagementObject mo in results)
+                {
+                    cpuName = mo["Name"] != null ? mo["Name"].ToString().Trim() : string.Empty;
+                    break;
+                }
+                results.Dispose();
+                searcher.Dispose();
+                return cpuName;
+            }
+            catch { return "Unknown CPU"; }
+        }
+
+        public static List<string> GetGpuNames()
+        {
+            List<string> names = new List<string>();
+
+            try
+            {
+                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT Name FROM Win32_VideoController"))
+                using (ManagementObjectCollection results = searcher.Get())
+                {
+                    foreach (ManagementObject mo in results)
+                    {
+                        string name = mo["Name"] != null ? mo["Name"].ToString().Trim() : string.Empty;
+                        if (name != string.Empty)
+                        {
+                            names.Add(name);
+                        }
+                    }
+                }
+                if (names.Count == 0)
+                    names.Add("Unknown GPU(s)");
+                return names;
+            }
+            catch
+            {
+                names.Clear();
+                names.Add("Unknown GPU(s)");
+                return names;
+            }
+        }
+
+        public static string GetTotalRam()
+        {
+            try
+            {
+                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT TotalPhysicalMemory FROM Win32_ComputerSystem"))
+                using (ManagementObjectCollection results = searcher.Get())
+                {
+                    foreach (ManagementObject mo in results)
+                    {
+                        string totalMemory = mo["TotalPhysicalMemory"] != null ? mo["TotalPhysicalMemory"].ToString() : "0";
+                        if (ulong.TryParse(totalMemory, out ulong bytes))
+                        {
+                            double gib = bytes / 1024.0 / 1024.0 / 1024.0;
+                            return gib.ToString("F2") + " GiB";
+                        }
+                        break;
+                    }
+                }
+            }
+            catch { }
+            return "Unknown";
+        }
+
+        public static string GetInstalledRam()
+        {
+            try
+            {
+                using (ManagementObjectSearcher searcher = new ManagementObjectSearcher("SELECT Capacity FROM Win32_PhysicalMemory"))
+                using (ManagementObjectCollection results = searcher.Get())
+                {
+                    ulong totalBytes = 0;
+                    foreach (ManagementObject mo in results)
+                        totalBytes += (ulong)mo["Capacity"];
+                    double gib = totalBytes / 1024.0 / 1024.0 / 1024.0;
+                    return gib.ToString("F2") + " GiB";
+                }
+            }
+            catch { return "Unknown"; }
+        }
+        //
+
+        //[2.10.3.9]MW0LGE form scaling
+        private const uint MONITOR_DEFAULTTONEAREST = 2;
+        private enum MonitorDpiType
+        {
+            MDT_EFFECTIVE_DPI = 0,
+            MDT_ANGULAR_DPI = 1,
+            MDT_RAW_DPI = 2
+        }
+
+        [DllImport("Shcore.dll")]
+        private static extern int GetDpiForMonitor(
+            IntPtr hmonitor,
+            MonitorDpiType dpiType,
+            out uint dpiX,
+            out uint dpiY);
+
+        [DllImport("User32.dll")]
+        private static extern IntPtr MonitorFromWindow(
+            IntPtr hwnd,
+            uint dwFlags);
+
+        public static int GetScalingForWindow(IntPtr hwnd)
+        {
+            OperatingSystem os = Environment.OSVersion;
+            Version version = os.Version;
+            bool isWin81OrLater =
+                os.Platform == PlatformID.Win32NT &&
+                (version.Major > 6 || (version.Major == 6 && version.Minor >= 3));
+
+            if (isWin81OrLater)
+            {
+                try
+                {
+                    IntPtr monitorHandle = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+                    uint dpiX;
+                    uint dpiY;
+                    int result = GetDpiForMonitor(
+                        monitorHandle,
+                        MonitorDpiType.MDT_EFFECTIVE_DPI,
+                        out dpiX,
+                        out dpiY);
+
+                    if (result == 0) return (int)(dpiX * 100 / 96);
+                }
+                catch (DllNotFoundException) { }
+                catch (EntryPointNotFoundException) { }
+            }
+
+            using (Graphics graphics = Graphics.FromHwnd(hwnd))
+            {
+                return (int)(graphics.DpiX * 100 / 96);
+            }
+        }
+        //
+
+        //[2.10.3.9]MW0LGE cpu usage for this process
+        private static HiPerfTimer _timer = null;
+        private static TimeSpan _previousCpuTime;
+        private static double _previousElapsedSeconds;
+        public static double ProcessCPUUsage()
+        {
+            if (_timer == null)
+            {
+                _timer = new HiPerfTimer();
+                _timer.Start();
+                _previousCpuTime = Process.GetCurrentProcess().TotalProcessorTime;
+                _previousElapsedSeconds = _timer.Elapsed;
+            }
+
+            Process process = Process.GetCurrentProcess();
+            TimeSpan currentCpuTime = process.TotalProcessorTime;
+            double currentElapsedSeconds = _timer.Elapsed;
+            TimeSpan cpuDelta = currentCpuTime - _previousCpuTime;
+            double elapsedDelta = currentElapsedSeconds - _previousElapsedSeconds;
+            _previousCpuTime = currentCpuTime;
+            _previousElapsedSeconds = currentElapsedSeconds;
+
+            if (elapsedDelta <= 0.0) return 0.0;
+
+            return (cpuDelta.TotalSeconds / (elapsedDelta * Environment.ProcessorCount)) * 100.0;
+        }
+        //
+
+        //[2.10.3.9]MW0LGE screensave/powersave prevention
+        [Flags]
+        public enum ExecutionState : uint
+        {
+            ES_CONTINUOUS = 0x80000000,
+            ES_SYSTEM_REQUIRED = 0x00000001,
+            ES_DISPLAY_REQUIRED = 0x00000002
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern ExecutionState SetThreadExecutionState(ExecutionState esFlags);
+
+        private static ExecutionState _previous_sleep_state;
+        private static ExecutionState _previous_display_state;
+        private static bool _sleep_prevented = false;
+        private static bool _display_prevented = false;
+
+        public static void PreventSleep()
+        {
+            try
+            {
+                ExecutionState result = SetThreadExecutionState(ExecutionState.ES_CONTINUOUS | ExecutionState.ES_SYSTEM_REQUIRED);
+                _previous_sleep_state = result;
+                _sleep_prevented = true;
+            }
+            catch { }
+        }
+
+        public static void PreventScreenSaver()
+        {
+            try
+            {
+                ExecutionState result = SetThreadExecutionState(ExecutionState.ES_CONTINUOUS | ExecutionState.ES_DISPLAY_REQUIRED);
+                _previous_display_state = result;
+                _display_prevented = true;
+            }
+            catch { }
+        }
+
+        public static ExecutionState ResumeSleep()
+        {
+            try
+            {
+                if (!_sleep_prevented)
+                {
+                    return default(ExecutionState);
+                }
+
+                ExecutionState result = SetThreadExecutionState(_previous_sleep_state);
+                _previous_sleep_state = default(ExecutionState);
+                _sleep_prevented = false;
+                return result;
+            }
+            catch
+            {
+                return default(ExecutionState);
+            }
+        }
+
+        public static ExecutionState ResumeScreenSaver()
+        {
+            try
+            {
+                if (!_display_prevented)
+                {
+                    return default(ExecutionState);
+                }
+
+                ExecutionState result = SetThreadExecutionState(_previous_display_state);
+                _previous_display_state = default(ExecutionState);
+                _display_prevented = false;
+                return result;
+            }
+            catch
+            {
+                return default(ExecutionState);
+            }
+        }
+
+        public static bool IsSleepPrevented
+        {
+            get
+            {
+                return _sleep_prevented;
+            }
+        }
+
+        public static bool IsScreenSaverPrevented
+        {
+            get
+            {
+                return _display_prevented;
+            }
+        }
+        //
+
+        //encryped stuff
+        public static string GenerateKeyBase64()
+        {
+            byte[] keyBytes = new byte[32];
+            using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(keyBytes);
+            }
+            return Convert.ToBase64String(keyBytes);
+        }
+        public static string EncryptAndCombineIvToBase64(string plaintext, byte[] key)
+        {
+            if (string.IsNullOrEmpty(plaintext) || key == null)
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                using (Aes aes = Aes.Create())
+                {
+                    aes.Key = key;
+                    aes.GenerateIV();
+
+                    using (ICryptoTransform encryptor = aes.CreateEncryptor(aes.Key, aes.IV))
+                    using (MemoryStream ms = new MemoryStream())
+                    using (CryptoStream cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
+                    {
+                        byte[] plainBytes = Encoding.UTF8.GetBytes(plaintext);
+                        cs.Write(plainBytes, 0, plainBytes.Length);
+                        cs.FlushFinalBlock();
+
+                        byte[] cipherBytes = ms.ToArray();
+                        byte[] combined = new byte[aes.IV.Length + cipherBytes.Length];
+                        Buffer.BlockCopy(aes.IV, 0, combined, 0, aes.IV.Length);
+                        Buffer.BlockCopy(cipherBytes, 0, combined, aes.IV.Length, cipherBytes.Length);
+
+                        return Convert.ToBase64String(combined);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+        }
+
+        public static string DecryptFromCombinedIvBase64(string combinedBase64, byte[] key)
+        {
+            if (string.IsNullOrEmpty(combinedBase64) || key == null)
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                byte[] combined = Convert.FromBase64String(combinedBase64);
+
+                using (Aes aes = Aes.Create())
+                {
+                    aes.Key = key;
+                    int ivLength = aes.BlockSize / 8;
+                    byte[] iv = new byte[ivLength];
+                    byte[] cipherBytes = new byte[combined.Length - ivLength];
+                    Buffer.BlockCopy(combined, 0, iv, 0, ivLength);
+                    Buffer.BlockCopy(combined, ivLength, cipherBytes, 0, cipherBytes.Length);
+
+                    aes.IV = iv;
+
+                    using (ICryptoTransform decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
+                    using (MemoryStream ms = new MemoryStream(cipherBytes))
+                    using (CryptoStream cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read))
+                    using (MemoryStream plainMs = new MemoryStream())
+                    {
+                        cs.CopyTo(plainMs);
+                        byte[] plainBytes = plainMs.ToArray();
+                        return Encoding.UTF8.GetString(plainBytes);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                return string.Empty;
+            }
+        }
+        //
+
+        //string compress
+        public static string Compress_gzip(string uncompressed_input)
+        {
+            if (string.IsNullOrEmpty(uncompressed_input)) return null;
+
+            byte[] input_bytes = Encoding.UTF8.GetBytes(uncompressed_input);
+
+            using (MemoryStream output_stream = new MemoryStream())
+            {
+                using (GZipStream gzip = new GZipStream(output_stream, CompressionLevel.Optimal, true))
+                {
+                    gzip.Write(input_bytes, 0, input_bytes.Length);
+                }
+                byte[] compressed_bytes = output_stream.ToArray();
+                string base64 = Convert.ToBase64String(compressed_bytes);
+                string result = base64.Replace('+', '-').Replace('/', '_').TrimEnd('=');
+                return result;
+            }
+        }
+
+        public static string Decompress_gzip(string compressed_input)
+        {
+            if (string.IsNullOrEmpty(compressed_input)) return null;
+
+            string base64 = compressed_input.Replace('-', '+').Replace('_', '/');
+            int pad = base64.Length % 4;
+            if (pad == 2) base64 += "==";
+            else if (pad == 3) base64 += "=";
+            else if (pad == 1) throw new FormatException("Invalid Base64URL length");
+
+            byte[] compressed_bytes = Convert.FromBase64String(base64);
+
+            using (MemoryStream input_stream = new MemoryStream(compressed_bytes))
+            using (GZipStream gzip = new GZipStream(input_stream, CompressionMode.Decompress))
+            using (MemoryStream decompressed_stream = new MemoryStream())
+            {
+                byte[] buffer = new byte[8192];
+                int read;
+                while ((read = gzip.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    decompressed_stream.Write(buffer, 0, read);
+                }
+                byte[] decompressed_bytes = decompressed_stream.ToArray();
+                string result = Encoding.UTF8.GetString(decompressed_bytes);
+                return result;
+            }
+        }
+        //
     }
 }

@@ -4,7 +4,7 @@ This file is part of a program that implements a Software-Defined Radio.
 
 This code/file can be found on GitHub : https://github.com/ramdor/Thetis
 
-Copyright (C) 2020-2024 Richard Samphire MW0LGE
+Copyright (C) 2020-2025 Richard Samphire MW0LGE
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -24,6 +24,20 @@ The author can be reached by email at
 
 mw0lge@grange-lane.co.uk
 */
+//
+//============================================================================================//
+// Dual-Licensing Statement (Applies Only to Author's Contributions, Richard Samphire MW0LGE) //
+// ------------------------------------------------------------------------------------------ //
+// For any code originally written by Richard Samphire MW0LGE, or for any modifications       //
+// made by him, the copyright holder for those portions (Richard Samphire) reserves the       //
+// right to use, license, and distribute such code under different terms, including           //
+// closed-source and proprietary licences, in addition to the GNU General Public License      //
+// granted above. Nothing in this statement restricts any rights granted to recipients under  //
+// the GNU GPL. Code contributed by others (not Richard Samphire) remains licensed under      //
+// its original terms and is not affected by this dual-licensing statement in any way.        //
+// Richard Samphire can be reached by email at :  mw0lge@grange-lane.co.uk                    //
+//============================================================================================//
+
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,6 +45,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Drawing;
 using System.Timers;
+using System.Globalization;
+using System.Web.UI;
 
 namespace Thetis
 {
@@ -52,18 +68,49 @@ namespace Thetis
             public DateTime timeAdded;
             public string additionalText;
             public string spotter;
+            public int heading;
+            public string continent;
+            public string country;
+            public DateTime utc_spot_time;
+            public bool IsSWL;
+            public long SwlSecondsToLive;
+
+            public bool previously_highlighted;
+            public bool flashing;
+            public DateTime flash_start_time;
 
             public bool[] Visible;
             public SizeF Size;
             public Rectangle[] BoundingBoxInPixels;
             public bool[] Highlight;
 
-            public bool IsSWL;
-            public long SwlSecondsToLive;
-
+            public smSpot()
+            {
+                DateTime now = DateTime.UtcNow;
+                callsign = "";
+                mode = DSPMode.FIRST;
+                frequencyHZ = 0;
+                colour = Color.White;
+                timeAdded = now;
+                additionalText = "";
+                spotter = "";
+                heading = -1;
+                continent = "";
+                country = "";
+                utc_spot_time = now;
+                IsSWL = false;
+                SwlSecondsToLive = 0;
+                previously_highlighted = false;
+                flashing = false;
+                flash_start_time = now;
+            }
             public void BrowseQRZ()
             {
                 Common.OpenUri("https://www.qrz.com/db/" + callsign.ToUpper().Trim());
+            }
+            public void BrowseHamQTH()
+            {
+                Common.OpenUri("https://www.hamqth.com/" + callsign.ToUpper().Trim());
             }
         }
 
@@ -96,10 +143,10 @@ namespace Thetis
                 //}
 
                 //remove any old spots, that are not swl
-                _spots.RemoveAll(o => !o.IsSWL && (DateTime.Now - o.timeAdded).TotalMinutes > _lifeTime);
+                _spots.RemoveAll(o => !o.IsSWL && (DateTime.UtcNow - o.timeAdded).TotalMinutes > _lifeTime);
 
                 //remove timeout swl, leave ones with 0
-                _spots.RemoveAll(o => o.IsSWL && o.SwlSecondsToLive != 0 && DateTime.Now > (o.timeAdded + TimeSpan.FromSeconds(o.SwlSecondsToLive)));
+                _spots.RemoveAll(o => o.IsSWL && o.SwlSecondsToLive != 0 && DateTime.UtcNow > (o.timeAdded + TimeSpan.FromSeconds(o.SwlSecondsToLive)));
             }
         }
 
@@ -229,8 +276,17 @@ namespace Thetis
 
             return raw_mode;
         }
-        public static void AddSpot(string callsign, DSPMode mode, long frequencyHz, Color colour, string additionalText, string spotter = "", string raw_mode = "")
-        {           
+        public static void AddSpot(string callsign, DSPMode mode, long frequencyHz, Color colour, string additionalText, string spotter = "", string raw_mode = "", int beam_heading = -1, string spot_continent = "", string spot_country = "", string date_time = "")
+        {
+            DateTime spotted_time = DateTime.UtcNow;
+            if (!string.IsNullOrEmpty(date_time))
+            {
+                const string format = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'Z'"; // "2025-06-25T16:45:30Z"
+
+                bool success = DateTime.TryParseExact(date_time, format, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTime result);
+                if (success) spotted_time = result;
+            }
+
             //[2.10.3.7]MW0LGE added raw_mode which is the raw mode string that came in with the spot
             //can be used as a filter, and in the case below handles swl[N] or -swl[N] where N is seconds to live
             long time_to_live = getSwlTimeToLive(raw_mode);
@@ -242,10 +298,17 @@ namespace Thetis
                 colour = colour,
                 additionalText = additionalText.Trim(),
                 spotter = spotter.Trim(),
-                timeAdded = DateTime.Now,
+                heading = beam_heading,
+                continent = spot_continent,
+                country = spot_country,
+                timeAdded = DateTime.UtcNow,
+                utc_spot_time = spotted_time,
 
                 IsSWL = time_to_live != -1,
-                SwlSecondsToLive = time_to_live
+                SwlSecondsToLive = time_to_live,
+
+                previously_highlighted = false,
+                flashing = (DateTime.UtcNow - spotted_time).TotalSeconds <= 120
             };
 
             if (_replaceOwnCallAppearance && spot.callsign == _replaceCall)
@@ -256,7 +319,12 @@ namespace Thetis
             if (spot.spotter.Length > 20)
                 spot.spotter = spot.spotter.Substring(0, 20);
             if (spot.additionalText.Length > 30)
-                spot.additionalText = spot.additionalText.Substring(0, 30);            
+                spot.additionalText = spot.additionalText.Substring(0, 30);
+            if (spot.continent.Length > 30)
+                spot.continent = spot.continent.Substring(0, 30);
+            if (spot.country.Length > 30)
+                spot.country = spot.country.Substring(0, 30);
+            if (spot.heading < 0 || spot.heading > 360) spot.heading = -1; //should idealy be 359, but we will accept 360 as the same as 0
 
             spot.Highlight = new bool[MAX_RX];
             spot.BoundingBoxInPixels = new Rectangle[MAX_RX];
@@ -271,9 +339,27 @@ namespace Thetis
 
             lock (_objLock)
             {
-                smSpot exists = _spots.Find(o => (o.callsign == spot.callsign) && (Math.Abs(o.frequencyHZ - frequencyHz) <= 5000));
+                smSpot exists = _spots.Find(o => string.Equals(o.callsign?.Trim(), spot.callsign?.Trim(), StringComparison.OrdinalIgnoreCase) && Math.Abs(o.frequencyHZ - frequencyHz) <= 5000);
                 if (exists != null)
+                {
+                    spot.flash_start_time = exists.flash_start_time;
+                    spot.flashing = exists.flashing;
+
+                    //if the data is the same, use the original spot time
+                    if (spot.mode == exists.mode &&
+                        Math.Abs(spot.frequencyHZ - exists.frequencyHZ) <= 5000 &&
+                        spot.colour == exists.colour &&
+                        spot.heading == exists.heading &&
+                        string.Equals(spot.additionalText?.Trim(), exists.additionalText?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(spot.spotter?.Trim(), exists.spotter?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(spot.continent?.Trim(), exists.continent?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(spot.country?.Trim(), exists.country?.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        spot.utc_spot_time = exists.utc_spot_time;
+                    }
+
                     _spots.Remove(exists);
+                }
 
                 // Limit to max
                 int count_swl = _spots.Count(o => o.IsSWL);

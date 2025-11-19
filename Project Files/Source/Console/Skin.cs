@@ -27,8 +27,21 @@
 //    USA
 //
 //=================================================================
-// Modifications Copyright (C) 2019-2024 Richard Samphire (MW0LGE)
+// Modifications Copyright (C) 2019-2025 Richard Samphire (MW0LGE)
 //=================================================================
+//
+//============================================================================================//
+// Dual-Licensing Statement (Applies Only to Author's Contributions, Richard Samphire MW0LGE) //
+// ------------------------------------------------------------------------------------------ //
+// For any code originally written by Richard Samphire MW0LGE, or for any modifications       //
+// made by him, the copyright holder for those portions (Richard Samphire) reserves the       //
+// right to use, license, and distribute such code under different terms, including           //
+// closed-source and proprietary licences, in addition to the GNU General Public License      //
+// granted above. Nothing in this statement restricts any rights granted to recipients under  //
+// the GNU GPL. Code contributed by others (not Richard Samphire) remains licensed under      //
+// its original terms and is not affected by this dual-licensing statement in any way.        //
+// Richard Samphire can be reached by email at :  mw0lge@grange-lane.co.uk                    //
+//============================================================================================//
 
 using System;
 using System.Diagnostics;
@@ -453,12 +466,14 @@ namespace Thetis
             if (temp != null)
             {
                 SetupQuickRecallImages((ucQuickRecall)c);
+                return;
             }
 
             temp = c as ucInfoBar;
             if (temp != null)
             {
                 SetupInfoBar((ucInfoBar)c);
+                return;
             }
         }
 
@@ -727,11 +742,17 @@ namespace Thetis
                 for (int i = 0; i < 8; i++)
                 {
                     if (File.Exists(path + "\\" + ctrl.TopLevelControl.Name + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext))
-                        b.ImageList.Images.Add(((ImageState)i).ToString(), loadImage(path + "\\" + ctrl.TopLevelControl.Name + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext));
+                    {
+                        Image img = loadImage(path + "\\" + ctrl.TopLevelControl.Name + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext);
+                        if(img != null) b.ImageList.Images.Add(((ImageState)i).ToString(), img);
+                    }
                     else
                     {
                         if (File.Exists(path + "\\" + "Console" + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext))
-                            b.ImageList.Images.Add(((ImageState)i).ToString(), loadImage(path + "\\" + "Console" + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext));
+                        {
+                            Image img = loadImage(path + "\\" + "Console" + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext);
+                            if(img != null) b.ImageList.Images.Add(((ImageState)i).ToString(), img);
+                        }
                     }
                 }
 
@@ -773,7 +794,7 @@ namespace Thetis
                     spath = path + "\\" + "Console" + "\\" + ctrl.Name + "-" + i.ToString() + pic_file_ext;
                 if (File.Exists(spath))
                 {
-                    Image img = loadImage(spath);                 
+                    Image img = loadImage(spath); // load to cache it                
                     if (_image_cache_map.ContainsKey(spath))
                     {
                         skey += _image_cache_map[spath];
@@ -986,7 +1007,7 @@ namespace Thetis
                     spath = path + "\\" + "Console" + "\\" + ctrl.Name + "-" + i.ToString() + pic_file_ext;
                 if (File.Exists(spath))
                 {
-                    Image img = loadImage(spath);
+                    Image img = loadImage(spath); // load to cache it
                     if (_image_cache_map.ContainsKey(spath))
                     {
                         skey += _image_cache_map[spath];
@@ -1068,11 +1089,17 @@ namespace Thetis
                 for (int i = 0; i < 8; i++)
                 {
                     if (File.Exists(path + "\\" + ctrl.TopLevelControl.Name + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext))
-                        b.ImageList.Images.Add(((ImageState)i).ToString(), loadImage(path + "\\" + ctrl.TopLevelControl.Name + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext));
+                    {
+                        Image img = loadImage(path + "\\" + ctrl.TopLevelControl.Name + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext);
+                        if(img != null) b.ImageList.Images.Add(((ImageState)i).ToString(), img);
+                    }
                     else
                     {
                         if (File.Exists(path + "\\" + "Console" + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext))
-                            b.ImageList.Images.Add(((ImageState)i).ToString(), loadImage(path + "\\" + "Console" + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext));
+                        {
+                            Image img = loadImage(path + "\\" + "Console" + "\\" + ctrl.Name + sBut + "-" + i.ToString() + pic_file_ext);
+                            if(img != null) b.ImageList.Images.Add(((ImageState)i).ToString(), img);
+                        }
                     }
                 }
 
@@ -1488,7 +1515,7 @@ namespace Thetis
                     spath = path + "\\" + "Console" + "\\" + ctrl.Name + "-" + i.ToString() + pic_file_ext;
                 if (File.Exists(spath))
                 {
-                    Image img = loadImage(spath);
+                    Image img = loadImage(spath); // load to cache it
                     if (_image_cache_map.ContainsKey(spath))
                     {
                         skey += _image_cache_map[spath];
@@ -1856,19 +1883,31 @@ namespace Thetis
         {
             Image objImg;
 
-            if (File.Exists(path + "\\" + c.TopLevelControl.Name + "\\" + c.Name + pic_file_ext))
-            {
-                objImg = loadImage(path + "\\" + c.TopLevelControl.Name + "\\" + c.Name + pic_file_ext);
-            }
-            else if (File.Exists(path + "\\" + "Console" + "\\" + c.Name + pic_file_ext))
-            {
-                objImg = loadImage(path + "\\" + "Console" + "\\" + c.Name + pic_file_ext);
-            }
+            string ctrl_name = c.Name;            
+
+            if (File.Exists(path + "\\" + c.TopLevelControl.Name + "\\" + ctrl_name + pic_file_ext))
+                objImg = loadImage(path + "\\" + c.TopLevelControl.Name + "\\" + ctrl_name + pic_file_ext);
+            else if (File.Exists(path + "\\" + "Console" + "\\" + ctrl_name + pic_file_ext))
+                objImg = loadImage(path + "\\" + "Console" + "\\" + ctrl_name + pic_file_ext);
             else objImg = null;
 
-            if (c.Name.Equals("picDisplay")) // special case
+            bool pnlDisplayControl = ctrl_name.Equals("pnlDisplay");
+            if (pnlDisplayControl && objImg == null)
             {
-                m_objConsole.PicDisplayBackgroundImage = objImg;
+                // [2.10.3.9]MW0LGE
+                // look for image called picDisplay instead, as we have moved from picDisplay to pnlDisplay
+                ctrl_name = "picDisplay";
+
+                if (File.Exists(path + "\\" + c.TopLevelControl.Name + "\\" + ctrl_name + pic_file_ext))
+                    objImg = loadImage(path + "\\" + c.TopLevelControl.Name + "\\" + ctrl_name + pic_file_ext);
+                else if (File.Exists(path + "\\" + "Console" + "\\" + ctrl_name + pic_file_ext))
+                    objImg = loadImage(path + "\\" + "Console" + "\\" + ctrl_name + pic_file_ext);
+                else objImg = null;
+            }
+
+            if (pnlDisplayControl) // special case
+            {
+                m_objConsole.PnlDisplayBackgroundImage = objImg;
             }
             else
             {
@@ -1892,20 +1931,19 @@ namespace Thetis
                 using (Image imgFile = Image.FromFile(path))
                 {
                     string hash = computeHashFromImage(imgFile);
-                    if (_image_cache.ContainsKey(hash))
+
+                    if (_image_cache.TryGetValue(hash, out img))
                     {
-                        if (!_image_cache_map.ContainsKey(path))
-                            _image_cache_map.Add(path, hash);
-                        return _image_cache[hash];
+                        if (!_image_cache_map.TryGetValue(path, out _)) _image_cache_map[path] = hash;
+                        return img;
                     }
 
                     img = new Bitmap(imgFile);
-                    _image_cache.Add(hash, img);
-                    if (!_image_cache_map.ContainsKey(path))
-                        _image_cache_map.Add(path, hash);
+                    _image_cache[hash] = img;
+                    if (!_image_cache_map.TryGetValue(path, out _)) _image_cache_map[path] = hash;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 img = null;
             }
@@ -1920,26 +1958,38 @@ namespace Thetis
         }
         private static string computeHashFromImage(Image image)
         {
-            byte[] imageBytes = imageToByteArray(image);
-            using (SHA256 sha256 = SHA256.Create())
+            //byte[] imageBytes = imageToByteArray(image);
+            //using (SHA256 sha256 = SHA256.Create())
+            //{
+            //    byte[] hashBytes = sha256.ComputeHash(imageBytes);
+            //    StringBuilder hashStringBuilder = new StringBuilder();
+            //    foreach (byte b in hashBytes)
+            //    {
+            //        hashStringBuilder.Append(b.ToString("x2"));
+            //    }
+            //    return hashStringBuilder.ToString();
+            //}
+
+            //[2.10.3.9]MW0LGE change to md5
+            using (MemoryStream ms = new MemoryStream())
             {
-                byte[] hashBytes = sha256.ComputeHash(imageBytes);
-                StringBuilder hashStringBuilder = new StringBuilder();
-                foreach (byte b in hashBytes)
+                image.Save(ms, image.RawFormat);
+                ms.Position = 0;
+                using (MD5 md5 = MD5.Create())
                 {
-                    hashStringBuilder.Append(b.ToString("x2"));
+                    Byte[] hashBytes = md5.ComputeHash(ms);
+                    return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
                 }
-                return hashStringBuilder.ToString();
             }
         }
-        private static byte[] imageToByteArray(Image image)
-        {
-            using (MemoryStream memoryStream = new MemoryStream())
-            {
-                image.Save(memoryStream, ImageFormat.Png);
-                return memoryStream.ToArray();
-            }
-        }
+        //private static byte[] imageToByteArray(Image image)
+        //{
+        //    using (MemoryStream memoryStream = new MemoryStream())
+        //    {
+        //        image.Save(memoryStream, ImageFormat.Png);
+        //        return memoryStream.ToArray();
+        //    }
+        //}
         #endregion
 
         private static Image resizeImage(Image image, Control c)

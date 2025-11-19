@@ -4,7 +4,7 @@ This file is part of a program that implements a Software-Defined Radio.
 
 This code/file can be found on GitHub : https://github.com/ramdor/Thetis
 
-Copyright (C) 2020-2024 Richard Samphire MW0LGE
+Copyright (C) 2020-2025 Richard Samphire MW0LGE
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -24,6 +24,20 @@ The author can be reached by email at
 
 mw0lge@grange-lane.co.uk
 */
+//
+//============================================================================================//
+// Dual-Licensing Statement (Applies Only to Author's Contributions, Richard Samphire MW0LGE) //
+// ------------------------------------------------------------------------------------------ //
+// For any code originally written by Richard Samphire MW0LGE, or for any modifications       //
+// made by him, the copyright holder for those portions (Richard Samphire) reserves the       //
+// right to use, license, and distribute such code under different terms, including           //
+// closed-source and proprietary licences, in addition to the GNU General Public License      //
+// granted above. Nothing in this statement restricts any rights granted to recipients under  //
+// the GNU GPL. Code contributed by others (not Richard Samphire) remains licensed under      //
+// its original terms and is not affected by this dual-licensing statement in any way.        //
+// Richard Samphire can be reached by email at :  mw0lge@grange-lane.co.uk                    //
+//============================================================================================//
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -40,6 +54,10 @@ namespace Thetis
     [DefaultEvent("Changed")]
     public partial class ucLGPicker : UserControl
     {
+        private const int LOW = 150; // -150 dbm
+        private const int HIGH = 10; // +10 dbm
+        private const int SPAN = LOW + HIGH;
+
         private const int m_nPadding = 16;                // the gaps around left/right side
         private const int m_nGrippers = 8;                // must be at least 2
 
@@ -48,6 +66,7 @@ namespace Thetis
         private bool m_bChangedDueToDrag = false;           // have we made a drag change (used by changed event)
         private bool m_bIncludeAlphaInPreview = false;      // alphas not used in preview, but they are included in color data
         private int m_nMouseOverIndex = -1;
+        private bool _show_percent = false;
         public struct ColourGradientData
         {
             public Color color;
@@ -96,6 +115,23 @@ namespace Thetis
             rebuildSortedColours();
         }
 
+        public int Low
+        {
+            get { return -LOW; }
+        }
+        public int High
+        {
+            get { return HIGH; }
+        }
+        public bool ShowAsPercent
+        {
+            get { return _show_percent; }
+            set 
+            { 
+                _show_percent = value;
+                this.Invalidate();
+            }
+        }
         private void rebuildSortedColours()
         {
             // need to have a sorted list used for drawing the linear grad line in paint event
@@ -152,15 +188,26 @@ namespace Thetis
         private Font drawFont = new Font("Microsft Sans Serif", 8);
         private void drawScales(Graphics g)
         {
-            int zeroPoint = 200;
-            int span = 400;
-            drawTextCentre(g, "-200", m_nPadding);
-            drawTextCentre(g, "200", m_nPadding + actualWidth);
+            int zeroPoint = LOW;
+            int span = SPAN;
 
-            drawTextCentre(g, "0", m_nPadding + (int)((actualWidth / (float)span) * (float)(zeroPoint)));
+            if (_show_percent)
+            {
+                drawTextCentre(g, "LOW", m_nPadding);
+                drawTextCentre(g, "HIGH", m_nPadding + actualWidth);
 
-            drawTextCentre(g, "-93", m_nPadding + (int)((actualWidth / (float)span) * (float)(zeroPoint - 93)));
-            drawTextCentre(g, "-73", m_nPadding + (int)((actualWidth / (float)span) * (float)(zeroPoint - 73)));
+                drawTextCentre(g, "MID", m_nPadding + (actualWidth / 2));
+            }
+            else
+            {
+                drawTextCentre(g, (-LOW).ToString(), m_nPadding);
+                drawTextCentre(g, (HIGH).ToString(), m_nPadding + actualWidth);
+
+                drawTextCentre(g, "0", m_nPadding + (int)((actualWidth / (float)span) * (float)(zeroPoint)));
+
+                drawTextCentre(g, "-93", m_nPadding + (int)((actualWidth / (float)span) * (float)(zeroPoint - 93)));
+                drawTextCentre(g, "-73", m_nPadding + (int)((actualWidth / (float)span) * (float)(zeroPoint - 73)));
+            }
         }
 
         private void LGPicker_Paint(object sender, PaintEventArgs e)
@@ -282,7 +329,7 @@ namespace Thetis
 
                 Invalidate();
 
-                OnGripperDBMChanged(-200 + (int)(400 * percPos));
+                OnGripperDBMChanged(-LOW + (int)(SPAN * percPos), percPos);
             }
             else
             {
@@ -294,12 +341,12 @@ namespace Thetis
                     {
                         if (m_nMouseOverIndex != -1)
                         {
-                            OnGripperMouseLeave(0);
+                            OnGripperMouseLeave(0, 0);
                         }
 
-                        int dBm = -200 + (int)(400 * m_dictColours[index].percent);
+                        int dBm = -LOW + (int)(SPAN * m_dictColours[index].percent);
 
-                        OnGripperMouseEnter(dBm); // TODO
+                        OnGripperMouseEnter(dBm, m_dictColours[index].percent); // TODO
                         m_nMouseOverIndex = index;
                     }
                 }
@@ -307,7 +354,7 @@ namespace Thetis
                 {
                     if (m_nMouseOverIndex != -1)
                     {
-                        OnGripperMouseLeave(0);
+                        OnGripperMouseLeave(0, 0);
                         m_nMouseOverIndex = -1;
                     }
                 }
@@ -498,7 +545,7 @@ namespace Thetis
         {
             if (m_nMouseOverIndex != -1)
             {
-                OnGripperMouseLeave(0);
+                OnGripperMouseLeave(0, 0);
                 m_nMouseOverIndex = -1;
             }
         }
@@ -698,17 +745,17 @@ namespace Thetis
         {
             GripperSelected?.Invoke(this, new ColourEventArgs(c));
         }
-        private void OnGripperMouseEnter(int dbm)
+        private void OnGripperMouseEnter(int dbm, float percent)
         {
-            GripperMouseEnter?.Invoke(this, new GripperEventArgs(dbm));
+            GripperMouseEnter?.Invoke(this, new GripperEventArgs(dbm, percent));
         }
-        private void OnGripperMouseLeave(int dbm)
+        private void OnGripperMouseLeave(int dbm, float percent)
         {
-            GripperMouseLeave?.Invoke(this, new GripperEventArgs(dbm));
+            GripperMouseLeave?.Invoke(this, new GripperEventArgs(dbm, percent));
         }
-        private void OnGripperDBMChanged(int dbm)
+        private void OnGripperDBMChanged(int dbm, float percent)
         {
-            GripperDBMChanged?.Invoke(this, new GripperEventArgs(dbm));
+            GripperDBMChanged?.Invoke(this, new GripperEventArgs(dbm, percent));
         }
         private void LGPicker_EnabledChanged(object sender, EventArgs e)
         {
@@ -745,10 +792,14 @@ namespace Thetis
         }
         public float GetPercForDBM(float dbm)
         {
-            float max = 400; // -200 through to 200
-            dbm += 200;
+            float max = SPAN; // LOW through to HIGH
+            dbm += LOW;
 
-            return dbm / max;
+            float perc = dbm / max;
+            if (perc < 0) perc = 0;
+            if (perc > 1) perc = 1;
+
+            return perc;
         }
         private void addColourGradientData(List<ColourGradientData> lst, Color color, float perc)
         {
@@ -911,8 +962,9 @@ namespace Thetis
     }
     public class GripperEventArgs
     {
-        public GripperEventArgs(int dBm) { DBM = dBm; }
+        public GripperEventArgs(int dBm, float percent) { DBM = dBm; Percent = percent; }
         public int DBM { get; } // read only
+        public float Percent { get; }
     }
 
     // based on : https://stackoverflow.com/questions/1236683/color-interpolation-between-3-colors-in-net

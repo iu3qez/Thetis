@@ -88,6 +88,7 @@ namespace Thetis
 
             commPort.PortName = "COM" + portidx.ToString();
 
+            commPort.Handshake = Handshake.None; //[2.10.3.9]MW0LGE
             commPort.Parity = Parity.None;
             commPort.StopBits = StopBits.One;
             commPort.DataBits = 8;
@@ -110,7 +111,7 @@ namespace Thetis
 
         public uint put(string s)
         {
-            if (bitBangOnly) return 0;  // fixme -- throw exception?			
+            if (bitBangOnly) return 0;  // fixme -- throw exception?		
             commPort.Write(s);
             return (uint)s.Length; // wjt fixme -- hack -- we don't know if we actually wrote things 			
         }
@@ -232,72 +233,107 @@ namespace Thetis
 
         void SerialPinChanged(object source, SerialPinChangedEventArgs e)
         {
+            //refactored for MAX performance [2.10.3.9]MW0LGE
+            // added else's to match switch's from old code
+
             if (!use_for_keyptt && !use_for_paddles && !use_for_cat_ptt) return;
+            bool dsrHolding = commPort.DsrHolding;
+            bool ctsHolding = commPort.CtsHolding;
+            bool isDsrChanged = e.EventType == SerialPinChange.DsrChanged;
+            bool isCtsChanged = e.EventType == SerialPinChange.CtsChanged;
+            bool isPinChangeRelevant = isDsrChanged || isCtsChanged;
 
-            if (use_for_keyptt)
+            if (use_for_keyptt && isPinChangeRelevant)
             {
-                switch (e.EventType)
+                if (isDsrChanged)
                 {
-                    case SerialPinChange.DsrChanged:
-
-                        if (ptt_on_dtr)
-                        {
-                            CWInput.KeyerPTT = commPort.DsrHolding;
-                        }
-
-                        if (key_on_dtr)
-                        {
-                            NetworkIO.SetCWX(Convert.ToInt32(commPort.DsrHolding));
-                        }
-                        break;
-                    case SerialPinChange.CtsChanged:
-
-                        if (ptt_on_rts)
-                        {
-                            CWInput.KeyerPTT = commPort.CtsHolding;
-                        }
-
-                        if (key_on_rts)
-                        {
-                            NetworkIO.SetCWX(Convert.ToInt32(commPort.CtsHolding));
-                        }
-                        break;
+                    if (ptt_on_dtr) CWInput.KeyerPTT = dsrHolding;
+                    if (key_on_dtr) NetworkIO.SetCWX(dsrHolding ? 1 : 0);
+                }
+                else if (isCtsChanged)
+                {
+                    if (ptt_on_rts) CWInput.KeyerPTT = ctsHolding;
+                    if (key_on_rts) NetworkIO.SetCWX(ctsHolding ? 1 : 0);
                 }
             }
-            else if (use_for_paddles)
+            else if (use_for_paddles && isPinChangeRelevant)
             {
-                switch (e.EventType)
-                {
-                    case SerialPinChange.DsrChanged:
-                        NetworkIO.SetCWDot(Convert.ToInt32(commPort.DsrHolding));
-                        break;
-                    case SerialPinChange.CtsChanged:
-                        NetworkIO.SetCWDash(Convert.ToInt32(commPort.CtsHolding));
-                        break;
-                }
+                if (isDsrChanged) NetworkIO.SetCWDot(dsrHolding ? 1 : 0);
+                else if (isCtsChanged) NetworkIO.SetCWDash(ctsHolding ? 1 : 0);
             }
 
             if (use_for_cat_ptt)
             {
-                switch (e.EventType)
-                {
-                    case SerialPinChange.DsrChanged:
-
-                        if (ptt_on_dtr)
-                        {
-                            CWInput.CATPTT = commPort.DsrHolding;
-                        }
-                        break;
-                    case SerialPinChange.CtsChanged:
-
-                        if (ptt_on_rts)
-                        {
-                            CWInput.CATPTT = commPort.CtsHolding;
-                        }                      
-                        break;
-                }
-
+                if (isDsrChanged && ptt_on_dtr) CWInput.CATPTT = dsrHolding;
+                else if (isCtsChanged && ptt_on_rts) CWInput.CATPTT = ctsHolding;
             }
+
+            //if (!use_for_keyptt && !use_for_paddles && !use_for_cat_ptt) return;
+
+            //if (use_for_keyptt)
+            //{
+            //    switch (e.EventType)
+            //    {
+            //        case SerialPinChange.DsrChanged:
+
+            //            if (ptt_on_dtr)
+            //            {
+            //                CWInput.KeyerPTT = commPort.DsrHolding;
+            //            }
+
+            //            if (key_on_dtr)
+            //            {
+            //                NetworkIO.SetCWX(Convert.ToInt32(commPort.DsrHolding));
+            //            }
+            //            break;
+            //        case SerialPinChange.CtsChanged:
+
+            //            if (ptt_on_rts)
+            //            {
+            //                CWInput.KeyerPTT = commPort.CtsHolding;
+            //            }
+
+            //            if (key_on_rts)
+            //            {
+            //                NetworkIO.SetCWX(Convert.ToInt32(commPort.CtsHolding));
+            //            }
+            //            break;
+            //    }
+            //}
+            //else if (use_for_paddles)
+            //{
+            //    switch (e.EventType)
+            //    {
+            //        case SerialPinChange.DsrChanged:
+            //            NetworkIO.SetCWDot(Convert.ToInt32(commPort.DsrHolding));
+            //            break;
+            //        case SerialPinChange.CtsChanged:
+            //            NetworkIO.SetCWDash(Convert.ToInt32(commPort.CtsHolding));
+            //            break;
+            //    }
+            //}
+
+            //if (use_for_cat_ptt)
+            //{
+            //    switch (e.EventType)
+            //    {
+            //        case SerialPinChange.DsrChanged:
+
+            //            if (ptt_on_dtr)
+            //            {
+            //                CWInput.CATPTT = commPort.DsrHolding;
+            //            }
+            //            break;
+            //        case SerialPinChange.CtsChanged:
+
+            //            if (ptt_on_rts)
+            //            {
+            //                CWInput.CATPTT = commPort.CtsHolding;
+            //            }                      
+            //            break;
+            //    }
+
+            //}
         }
 
         void SerialReceivedData(object source, SerialDataReceivedEventArgs e)
@@ -368,6 +404,7 @@ namespace Thetis
 
             commPort.PortName = "COM" + portidx.ToString();
 
+            commPort.Handshake = Handshake.None;
             commPort.Parity = Parity.None;
             commPort.StopBits = StopBits.One;
             commPort.DataBits = 8;
@@ -648,6 +685,7 @@ namespace Thetis
 
             commPort.PortName = "COM" + portidx.ToString();
 
+            commPort.Handshake = Handshake.None;
             commPort.Parity = Parity.None;
             commPort.StopBits = StopBits.One;
             commPort.DataBits = 8;
@@ -928,6 +966,7 @@ namespace Thetis
 
             commPort.PortName = "COM" + portidx.ToString();
 
+            commPort.Handshake = Handshake.None;
             commPort.Parity = Parity.None;
             commPort.StopBits = StopBits.One;
             commPort.DataBits = 8;
@@ -1209,6 +1248,7 @@ namespace Thetis
 
             commPort.PortName = "COM" + portidx.ToString();
 
+            commPort.Handshake = Handshake.None;
             commPort.Parity = Parity.None;
             commPort.StopBits = StopBits.One;
             commPort.DataBits = 8;
@@ -1490,6 +1530,7 @@ namespace Thetis
 
             commPort.PortName = "COM" + portidx.ToString();
 
+            commPort.Handshake = Handshake.None;
             commPort.Parity = Parity.None;
             commPort.StopBits = StopBits.One;
             commPort.DataBits = 8;
@@ -1771,6 +1812,7 @@ namespace Thetis
 
             commPort.PortName = "COM" + portidx.ToString();
 
+            commPort.Handshake = Handshake.None;
             commPort.Parity = Parity.None;
             commPort.StopBits = StopBits.One;
             commPort.DataBits = 8;

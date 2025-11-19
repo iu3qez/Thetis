@@ -28,6 +28,19 @@
 //=================================================================
 // Modifications to the database import function to allow using files created with earlier versions.
 // by Chris Codella, W2PA, May 2017.  Indicated by //-W2PA comment lines. 
+//
+//============================================================================================//
+// Dual-Licensing Statement (Applies Only to Author's Contributions, Richard Samphire MW0LGE) //
+// ------------------------------------------------------------------------------------------ //
+// For any code originally written by Richard Samphire MW0LGE, or for any modifications       //
+// made by him, the copyright holder for those portions (Richard Samphire) reserves the       //
+// right to use, license, and distribute such code under different terms, including           //
+// closed-source and proprietary licences, in addition to the GNU General Public License      //
+// granted above. Nothing in this statement restricts any rights granted to recipients under  //
+// the GNU GPL. Code contributed by others (not Richard Samphire) remains licensed under      //
+// its original terms and is not affected by this dual-licensing statement in any way.        //
+// Richard Samphire can be reached by email at :  mw0lge@grange-lane.co.uk                    //
+//============================================================================================//
 
 using System;
 using System.Data;
@@ -4329,18 +4342,18 @@ namespace Thetis
             t.Columns.Add("FMMicGain", typeof(int));
             t.Columns.Add("MicMute", typeof(bool)); //MW0LGE_21f
             t.Columns.Add("Lev_On", typeof(bool));
-            t.Columns.Add("Lev_Slope", typeof(int));
+            //t.Columns.Add("Lev_Slope", typeof(int));
             t.Columns.Add("Lev_MaxGain", typeof(int));
-            t.Columns.Add("Lev_Attack", typeof(int));
+            //t.Columns.Add("Lev_Attack", typeof(int));
             t.Columns.Add("Lev_Decay", typeof(int));
-            t.Columns.Add("Lev_Hang", typeof(int));
-            t.Columns.Add("Lev_HangThreshold", typeof(int));
-            t.Columns.Add("ALC_Slope", typeof(int));
+            //t.Columns.Add("Lev_Hang", typeof(int));
+            //t.Columns.Add("Lev_HangThreshold", typeof(int));
+            //t.Columns.Add("ALC_Slope", typeof(int));
             t.Columns.Add("ALC_MaximumGain", typeof(int));
-            t.Columns.Add("ALC_Attack", typeof(int));
+            //t.Columns.Add("ALC_Attack", typeof(int));
             t.Columns.Add("ALC_Decay", typeof(int));
-            t.Columns.Add("ALC_Hang", typeof(int));
-            t.Columns.Add("ALC_HangThreshold", typeof(int));
+            //t.Columns.Add("ALC_Hang", typeof(int));
+            //t.Columns.Add("ALC_HangThreshold", typeof(int));
             t.Columns.Add("Power", typeof(int));
 
             t.Columns.Add("VOX_On", typeof(bool));
@@ -4564,18 +4577,18 @@ namespace Thetis
             dr["FMMicGain"] = 10;
             dr["MicMute"] = true; //MW0LGE_21f
             dr["Lev_On"] = true;
-            dr["Lev_Slope"] = 0;
+            //dr["Lev_Slope"] = 0;
             dr["Lev_MaxGain"] = 15;
-            dr["Lev_Attack"] = 2;
+            //dr["Lev_Attack"] = 2;
             dr["Lev_Decay"] = 100;
-            dr["Lev_Hang"] = 500;
-            dr["Lev_HangThreshold"] = 0;
-            dr["ALC_Slope"] = 0;
+            //dr["Lev_Hang"] = 500;
+            //dr["Lev_HangThreshold"] = 0;
+            //dr["ALC_Slope"] = 0;
             dr["ALC_MaximumGain"] = 3;
-            dr["ALC_Attack"] = 2;
+            //dr["ALC_Attack"] = 2;
             dr["ALC_Decay"] = 10;
-            dr["ALC_Hang"] = 500;
-            dr["ALC_HangThreshold"] = 0;
+            //dr["ALC_Hang"] = 500;
+            //dr["ALC_HangThreshold"] = 0;
             dr["Power"] = 50;
             dr["VOX_On"] = false;
             dr["Dexp_On"] = false;
@@ -4788,18 +4801,18 @@ namespace Thetis
             dr["FMMicGain"] = 10;
             dr["MicMute"] = true; //MW0LGE_21f
             dr["Lev_On"] = true;
-            dr["Lev_Slope"] = 0;
+            //dr["Lev_Slope"] = 0;
             dr["Lev_MaxGain"] = 15;
-            dr["Lev_Attack"] = 2;
+            //dr["Lev_Attack"] = 2;
             dr["Lev_Decay"] = 100;
-            dr["Lev_Hang"] = 500;
-            dr["Lev_HangThreshold"] = 0;
-            dr["ALC_Slope"] = 0;
+            //dr["Lev_Hang"] = 500;
+            //dr["Lev_HangThreshold"] = 0;
+            //dr["ALC_Slope"] = 0;
             dr["ALC_MaximumGain"] = 3;
-            dr["ALC_Attack"] = 2;
+            //dr["ALC_Attack"] = 2;
             dr["ALC_Decay"] = 10;
-            dr["ALC_Hang"] = 500;
-            dr["ALC_HangThreshold"] = 0;
+            //dr["ALC_Hang"] = 500;
+            //dr["ALC_HangThreshold"] = 0;
             dr["Power"] = 50;
             dr["VOX_On"] = false;
             dr["Dexp_On"] = false;
@@ -5014,18 +5027,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = false;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -5238,18 +5251,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = false;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -5461,18 +5474,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -5684,18 +5697,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -5907,18 +5920,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -6130,18 +6143,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -6353,18 +6366,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -6576,18 +6589,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -6799,18 +6812,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = false;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -7022,18 +7035,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -7245,18 +7258,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -7468,18 +7481,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -7691,18 +7704,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -7914,18 +7927,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -8137,18 +8150,18 @@ namespace Thetis
                 dr["FMMicGain"] = 10;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -8360,18 +8373,18 @@ namespace Thetis
                 dr["FMMicGain"] = 6;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -8583,18 +8596,18 @@ namespace Thetis
                 dr["FMMicGain"] = 6;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -8806,18 +8819,18 @@ namespace Thetis
                 dr["FMMicGain"] = 6;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -9029,18 +9042,18 @@ namespace Thetis
                 dr["FMMicGain"] = 6;
                 dr["MicMute"] = true; //MW0LGE_21f
                 dr["Lev_On"] = true;
-                dr["Lev_Slope"] = 0;
+                //dr["Lev_Slope"] = 0;
                 dr["Lev_MaxGain"] = 15;
-                dr["Lev_Attack"] = 2;
+                //dr["Lev_Attack"] = 2;
                 dr["Lev_Decay"] = 100;
-                dr["Lev_Hang"] = 500;
-                dr["Lev_HangThreshold"] = 0;
-                dr["ALC_Slope"] = 0;
+                //dr["Lev_Hang"] = 500;
+                //dr["Lev_HangThreshold"] = 0;
+                //dr["ALC_Slope"] = 0;
                 dr["ALC_MaximumGain"] = 3;
-                dr["ALC_Attack"] = 2;
+                //dr["ALC_Attack"] = 2;
                 dr["ALC_Decay"] = 10;
-                dr["ALC_Hang"] = 500;
-                dr["ALC_HangThreshold"] = 0;
+                //dr["ALC_Hang"] = 500;
+                //dr["ALC_HangThreshold"] = 0;
                 dr["Power"] = 50;
                 dr["VOX_On"] = false;
                 dr["Dexp_On"] = false;
@@ -10405,8 +10418,8 @@ namespace Thetis
         private static bool _merged = false;
         public static bool Merged
         {
-            //This is used by Console.SaveState and SetupForm.SaveOptions functions so that after a merge settings are not re-read
-            //from setup form and consol. This prevents the values that have just been merged from being over-written during
+            //This is used by Console.SaveState and SetupForm.SaveOptions functions so that after a merge, settings are not re-read
+            //from setup form and console. This prevents the values that have just been merged from being over-written during
             //the shutdown
             get { return _merged; }
         }
